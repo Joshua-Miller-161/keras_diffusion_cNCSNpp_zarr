@@ -173,6 +173,8 @@ cython_debug/
 *.nc
 *.json
 *.pkl
+*.out
+*.err
 
 scripts/diffusion_downscaling
 scripts/multivariate_predictors

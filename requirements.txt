@@ -5,8 +5,8 @@ netCDF4
 h5py
 
 # PyTorch 2.x with CUDA wheels (latest stable 2.x)
-# You can change cu118 to another CUDA wheel variant if you need (e.g. cu121, cu128, cu13x)
---index-url https://download.pytorch.org/whl/cu118
+# extra-index-url lets pip still use PyPI for zarr/xarray/etc.
+--extra-index-url https://download.pytorch.org/whl/cu118
 torch>=2,<3
 torchvision
 scipy

@@ -20,9 +20,8 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import xarray as xr
 import pandas as pd
-from diffusion_downscaling.data.scaling import LatLonScaler
 from itertools import product
-
+from .scaling import LatLonScaler
 from .constants import LOCATIONS_MAP
 
 

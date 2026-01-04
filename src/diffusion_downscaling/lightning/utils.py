@@ -1,12 +1,15 @@
+import sys
+sys.dont_write_bytecode=True
+import os
 from pathlib import Path
 import torch
 import xarray as xr
 import numpy as np
-import lightning as pl
+import pytorch_lightning as pl
+from dotenv import load_dotenv, dotenv_values, find_dotenv
 
-from lightning.pytorch.callbacks import LearningRateMonitor
-from lightning.pytorch.callbacks import ModelCheckpoint
-
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, TQDMProgressBar
+from pytorch_lightning.strategies import DDPStrategy
 
 from ..data.scaling import DataScaler
 from ..data.data_loading import get_dataloader, prepare_and_scale_data
@@ -21,6 +24,11 @@ from ..yang_cm.utils import create_model as create_cm_model
 from .models.diffusion import LightningDiffusion, setup_edm_model, setup_vp_model
 from .models.deterministic import LightningDeterministic
 from .models.gan import LightningGAN
+
+load_dotenv()
+
+config_ = dotenv_values(find_dotenv(usecwd=True))
+print(config_['WORK_DIR'])
 
 _MODELS_DICT = {
     "diffusion": LightningDiffusion,
@@ -66,17 +74,20 @@ def build_model(config, checkpoint_name=None):
     # I could only fix them using an eager backend, after which the model behaves as expected.
     # Should investigate at some point what's going wrong with the LocationParameterField
     # in yang_cm/unet, and how to fix it for different compilation backends.
-    base_model = torch.compile(base_model)
+    #base_model = torch.compile(base_model, options={"triton.cudagraphs": True})
 
     if checkpoint_name is None:
         model = model_class(base_model, loss_config, config.optim, **model_kwargs)
     else:
         if not Path(checkpoint_name).is_file():
-            base_output_dir = Path(config.base_output_dir)
-            run_name = config.run_name
-            project_name = config.project_name
-            output_dir = str(base_output_dir / project_name / run_name)
-            checkpoint_name = output_dir + f"/chkpts/{checkpoint_name}"
+            #base_output_dir = Path(config.base_output_dir)
+            # base_output_dir = Path(config_['WORK_DIR'])
+            # run_name = config.run_name
+            # project_name = config.project_name
+            # output_dir = str(base_output_dir / project_name / run_name)
+            # checkpoint_name = output_dir + f"/chkpts/{checkpoint_name}"
+            
+            checkpoint_name = os.path.join(config_['WORK_DIR'], "checkpoints", config.data.dataset, config.run_name)
 
         model = model_class.load_from_checkpoint(
             checkpoint_name,
@@ -89,22 +100,9 @@ def build_model(config, checkpoint_name=None):
     return model
 
 
-
 def convert_precision(precision_string):
     conversion = {"32": "32", "bf16": "bf16-mixed", "16": "16-mixed"}
     return conversion[precision_string]
-
-
-def build_trainer(
-    training_config, gradient_clip_val, callback_config, precision, device, logger
-):
-    callbacks = get_callbacks(callback_config)
-    trainer_args = get_training_config(training_config, gradient_clip_val, device)
-    trainer_args["callbacks"] = callbacks
-    trainer = pl.Trainer(
-        precision=convert_precision(precision), logger=logger, **trainer_args
-    )
-    return trainer
 
 
 def build_or_load_data_scaler(config, data_scaler_parameters_path = None):
@@ -120,6 +118,7 @@ def build_or_load_data_scaler(config, data_scaler_parameters_path = None):
         data_scaler = load_data_scaler(data_scaler_parameters_path)
     return data_scaler
 
+
 def build_data_scaler(data_path, variable_scaler_map, variable_location_config, split_config):
     split = create_indices(split_config)
     ds = prepare_and_scale_data(data_path, split, variable_location_config, data_transform=None)
@@ -129,11 +128,13 @@ def build_data_scaler(data_path, variable_scaler_map, variable_location_config, 
 
     return data_scaler
 
+
 def load_data_scaler(parameters_path):
     data_scaler = DataScaler({})
     data_scaler.load_scaler_parameters(parameters_path)
     return data_scaler
     
+
 def get_training_config(training_config, gradient_clip_val, device):
     trainer_args = {}
     trainer_args["accelerator"] = "gpu"  # TODO: FIX
@@ -151,6 +152,39 @@ def configure_location_args(config, data_path):
     coords = ds.lat.values, ds.lon.values
     config.model.location_parameter_config = coords, config.model.location_parameters
     return config
+
+
+def build_trainer(training_config, gradient_clip_val, callback_config, precision, device, logger):
+    trainer_args = get_training_config(training_config, gradient_clip_val, device)
+    
+    trainer_args["callbacks"] = get_callbacks(callback_config)
+
+    num_gpus = torch.cuda.device_count()
+
+    if num_gpus > 0:
+        trainer_args["accelerator"] = "gpu"
+        trainer_args["devices"] = num_gpus
+        trainer_args["strategy"] = (
+            DDPStrategy(find_unused_parameters=False)
+            if num_gpus > 1
+            else "auto"
+        )
+        trainer_args["use_distributed_sampler"] = num_gpus > 1
+    else:
+        trainer_args["accelerator"] = "cpu"
+        trainer_args["devices"] = None
+        trainer_args["strategy"] = "auto"
+        trainer_args["use_distributed_sampler"] = False
+    
+    trainer_args["log_every_n_steps"]=10
+    trainer_args["val_check_interval"]=1.0
+
+    trainer = pl.Trainer(
+        precision=convert_precision(precision),
+        logger=logger,
+        **trainer_args
+    )
+    return trainer
 
 
 def get_callbacks(callback_args):
@@ -188,7 +222,10 @@ def get_callbacks(callback_args):
                 monitor=None,  # No monitoring, just saving every n epochs
             )
         )
+    pbar = LossOnlyProgressBar()
+    callbacks.append(pbar)
     return callbacks
+
 
 def setup_custom_training_coords(config, sampling_config):
 
@@ -304,7 +341,7 @@ def build_josh_datamodule(config, num_workers=0):
         input_transform_dataset_name=getattr(
             data_cfg, "input_transform_dataset", getattr(data_cfg, "dataset_name", data_cfg.dataset)
         ),
-        transform_dir=getattr(data_cfg, "transform_dir", None),
+        transform_dir=os.path.join(os.getenv('WORK_DIR'), "transforms/zarr"),
         batch_size=config.training.batch_size,
         filename=getattr(data_cfg, "filename", getattr(data_cfg, "train_filename", None)),
         val_filename=getattr(data_cfg, "val_filename", None),
@@ -314,3 +351,21 @@ def build_josh_datamodule(config, num_workers=0):
         num_workers=num_workers,
         prefetch_factor=getattr(data_cfg, "prefetch_factor", None),
     )
+
+
+class LossOnlyProgressBar(TQDMProgressBar):
+    def __init__(self):
+        super().__init__()  # don't forget this :)
+        self.enable = True
+
+    def disable(self):
+        self.enable = False
+    
+    def get_metrics(self, trainer, pl_module):
+        # Get the default metrics
+        metrics = super().get_metrics(trainer, pl_module)
+        # Filter to only show train_loss and val_loss
+        return {
+            k: v for k, v in metrics.items()
+            if k in ("train_loss", "val_loss")
+        }

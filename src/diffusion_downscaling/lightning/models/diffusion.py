@@ -1,4 +1,6 @@
-
+import sys
+sys.dont_write_bytecode = True
+import torch
 
 from .base import LightningBase
 from .karras_diffusion import EDMDenoiser, VPDenoiser
@@ -8,12 +10,14 @@ def setup_edm_model(config, score_model, device):
     sigma_data = 0.5
     loss_config = {"buffer_width": config.training.loss_buffer_width}
     score_model = EDMDenoiser(score_model, sigma_data, device=device)
+    #score_model = torch.compile(score_model, options={"triton.cudagraphs": True}) # PyTorch 2 - comment out if errors n stuff
     return score_model, loss_config
 
 
 def setup_vp_model(config, score_model, device):
     loss_config = {"buffer_width": config.training.loss_buffer_width}
     score_model = VPDenoiser(score_model, device=device)
+    #score_model = torch.compile(score_model, options={"triton.cudagraphs": True})
     return score_model, loss_config
 
 

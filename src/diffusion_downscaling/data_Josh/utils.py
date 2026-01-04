@@ -11,7 +11,6 @@ import yaml
 import logging
 import gc
 from datetime import timedelta
-from flufl.lock import Lock
 import time
 from torch.utils.data import DataLoader
 import torch.distributed as dist
@@ -22,13 +21,13 @@ import pandas as pd
 
 logger = logging.getLogger()
 
-from .dataset import DownscalingDataset
-from .transforms import (
-    build_input_transform,
-    build_target_transform,
-    save_transform,
-    load_transform,
-)
+#from .dataset import DownscalingDataset
+# from .transforms import (
+#     build_input_transform,
+#     build_target_transform,
+#     save_transform,
+#     load_transform,
+# )
 #====================================================================
 # ''' Handles printing and logging from multiple GPUs (from ChatGPT lol)'''
 
@@ -68,28 +67,6 @@ def open_zarr(dataset_name, filename):
     except KeyError:
         return xr.open_zarr(datafile_path(dataset_name, filename))
 #====================================================================
-def build_DataLoader(xr_data, model_src_dataset_name, batch_size, shuffle, include_time_inputs):
-    # sampler = DistributedSampler(dataset) if self.trainer and self.trainer.world_size > 1 else None
-    if is_main_process():
-        print(" >> >> inside lightningDataModule._wrap_loader", type(xr_data))
-    time_range = None
-    if include_time_inputs:
-        time_range = TIME_RANGE
-
-    variables, target_variables = get_variables(model_src_dataset_name)
-
-    xr_dataset = DownscalingDataset(xr_data,
-                                    variables,
-                                    target_variables,
-                                    time_range)
-
-    data_loader = DataLoader(xr_dataset,
-                                batch_size=batch_size,
-                                shuffle=shuffle,
-                                collate_fn=custom_collate)
-        
-    return data_loader
-#====================================================================
 def get_variables(dataset_name):
     print(" >> >> INSIDE get_variables dataset_name", dataset_name)
     logger.info(" >> >> INSIDE get_variables dataset_name %s", dataset_name)
@@ -112,143 +89,6 @@ def get_variables_per_var(config):
     target_variables = config.data.predictands.variables
 
     return variables, target_variables
-#====================================================================
-def _build_transform(
-    filename,
-    variables,
-    active_dataset_name,
-    model_src_dataset_name,
-    transform_keys,
-    builder,
-):
-    logging.info(f"Fitting transform")
-
-    xfm = builder(variables, transform_keys)
-
-    model_src_training_split = open_zarr(model_src_dataset_name, filename)
-    print(" >> >> INSIDE mlde_josh_utils.data.data_utils.py _build_transform: model_src_training_split = load_raw_dataset(model_src_dataset_name, filename)")
-
-    active_dataset_training_split = open_zarr(active_dataset_name, filename)
-    print(" >> >> INSIDE mlde_josh_utils.data.data_utils.py _build_transform: active_dataset_training_split = load_raw_dataset(active_dataset_name, filename)") 
-          
-    xfm.fit(active_dataset_training_split, model_src_training_split)
-
-    print(" >> >> INSIDE mlde_josh_utils.data.data_utils.py _build_transform: xfm.fit(active_dataset_training_split, model_src_training_split)") 
-    
-    model_src_training_split.close()
-    del model_src_training_split
-    active_dataset_training_split.close()
-    del active_dataset_training_split
-    gc.collect
-
-    return xfm
-#====================================================================
-def _find_or_create_transforms(
-    filename,
-    active_dataset_name,
-    model_src_dataset_name,
-    transform_dir,
-    input_transform_key,
-    target_transform_keys,
-    evaluation,
-):
-    variables, target_variables = get_variables(model_src_dataset_name)
-    logger.info(" >> >> INSIDE _find_or_create_transforms")
-    if transform_dir is None:
-        input_transform = _build_transform(
-            filename,
-            variables,
-            active_dataset_name,
-            model_src_dataset_name,
-            input_transform_key,
-            build_input_transform,
-        )
-
-        if evaluation:
-            raise RuntimeError("Target transform should only be fitted during training")
-        target_transform = _build_transform(
-            filename,
-            target_variables,
-            active_dataset_name,
-            model_src_dataset_name,
-            target_transform_keys,
-            build_target_transform,
-        )
-    else:
-
-        dataset_transform_dir = os.path.join(
-            transform_dir, active_dataset_name, input_transform_key
-        )
-
-        print(" >> >> INSIDE _find_or_create_transforms dataset_transform_dir", dataset_transform_dir)
-        logger.info(" >> >> INSIDE _find_or_create_transforms dataset_transform_dir %s", dataset_transform_dir)
-
-        os.makedirs(dataset_transform_dir, exist_ok=True)
-        input_transform_path = os.path.join(dataset_transform_dir, "input.pickle")
-        target_transform_path = os.path.join(dataset_transform_dir, "target.pickle")
-
-        #lock_path = os.path.join(transform_dir, ".lock")
-        #lock = Lock(lock_path, lifetime=timedelta(hours=1))
-        #print(" >> >> INSIDE _find_or_create_transforms made_lock", lock_path)
-        #with lock:
-        print(" <> >< <> >< <> >< <> >< <> >< <> >< <> >< <> >< <> >< <>")
-
-        if os.path.exists(input_transform_path):
-            start_time = time.time()
-            print(" >> >> INSIDE data_utils._find_or_create_transforms: Loading input_transform")
-            logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: Loading input_transform")
-            input_transform = load_transform(input_transform_path)
-            end_time = time.time()
-            print(f" >> >> INSIDE data_utils._find_or_create_transforms: Loaded input_transform, {end_time-start_time:.4f} seconds")
-            logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: Loading input_transform %.4f seconds", end_time-start_time)
-        else:
-            start_time = time.time()
-            print(" >> >> INSIDE data_utils._find_or_create_transforms: building input_transform")
-            logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: building input_transform")
-            input_transform = _build_transform(
-                filename,
-                variables,
-                active_dataset_name,
-                model_src_dataset_name,
-                input_transform_key,
-                build_input_transform,
-            )
-            end_time = time.time()
-            print(f" >> >> INSIDE data_utils._find_or_create_transforms: built input_transform, {end_time-start_time:.4f} seconds")
-            logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: built input_transform, %.4f seconds", end_time-start_time)
-            save_transform(input_transform, input_transform_path)
-
-        if os.path.exists(target_transform_path):
-            start_time = time.time()
-            print(" >> >> INSIDE data_utils._find_or_create_transforms: Loading target_transform")
-            logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: Loading target_transform")
-            target_transform = load_transform(target_transform_path)
-            end_time = time.time()
-            print(f" >> >> INSIDE data_utils._find_or_create_transforms: Loaded target_transform, {end_time-start_time:.4f} seconds")
-            logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: Loaded target_transform %.4f seconds", end_time-start_time)
-        else:
-            if evaluation:
-                raise RuntimeError(
-                    "Target transform should only be fitted during training"
-                )
-            start_time = time.time()
-            print(" >> >> INSIDE data_utils._find_or_create_transforms: building target_transform")
-            logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: building target_transform")
-            target_transform = _build_transform(
-                filename,
-                target_variables,
-                active_dataset_name,
-                model_src_dataset_name,
-                target_transform_keys,
-                build_target_transform,
-            )
-            end_time = time.time()
-            print(f" >> >> INSIDE data_utils._find_or_create_transforms: built target_transform, {end_time-start_time:.4f} seconds")
-            logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: built target_transform %.4f seconds", end_time-start_time)
-            save_transform(target_transform, target_transform_path)
-
-    gc.collect
-    return input_transform, target_transform
 #====================================================================
 def generate_output_filepath(output_dirpath):
     output_dir = Path(output_dirpath)
@@ -423,3 +263,144 @@ def input_to_list(var):
         return flat
     else:
         raise ValueError(f"Unsupported input type: {type(var)}")
+    
+
+
+
+
+# def _build_transform(
+#     filename,
+#     variables,
+#     active_dataset_name,
+#     model_src_dataset_name,
+#     transform_keys,
+#     builder,
+# ):
+#     logging.info(f"Fitting transform")
+
+#     xfm = builder(variables, transform_keys)
+
+#     model_src_training_split = open_zarr(model_src_dataset_name, filename)
+#     print(" >> >> INSIDE mlde_josh_utils.data.data_utils.py _build_transform: model_src_training_split = load_raw_dataset(model_src_dataset_name, filename)")
+
+#     active_dataset_training_split = open_zarr(active_dataset_name, filename)
+#     print(" >> >> INSIDE mlde_josh_utils.data.data_utils.py _build_transform: active_dataset_training_split = load_raw_dataset(active_dataset_name, filename)") 
+          
+#     xfm.fit(active_dataset_training_split, model_src_training_split)
+
+#     print(" >> >> INSIDE mlde_josh_utils.data.data_utils.py _build_transform: xfm.fit(active_dataset_training_split, model_src_training_split)") 
+    
+#     model_src_training_split.close()
+#     del model_src_training_split
+#     active_dataset_training_split.close()
+#     del active_dataset_training_split
+#     gc.collect
+
+#     return xfm
+# #====================================================================
+# def _find_or_create_transforms(
+#     filename,
+#     active_dataset_name,
+#     model_src_dataset_name,
+#     transform_dir,
+#     input_transform_key,
+#     target_transform_keys,
+#     evaluation,
+# ):
+#     variables, target_variables = get_variables(model_src_dataset_name)
+#     logger.info(" >> >> INSIDE _find_or_create_transforms")
+#     if transform_dir is None:
+#         input_transform = _build_transform(
+#             filename,
+#             variables,
+#             active_dataset_name,
+#             model_src_dataset_name,
+#             input_transform_key,
+#             build_input_transform,
+#         )
+
+#         if evaluation:
+#             raise RuntimeError("Target transform should only be fitted during training")
+#         target_transform = _build_transform(
+#             filename,
+#             target_variables,
+#             active_dataset_name,
+#             model_src_dataset_name,
+#             target_transform_keys,
+#             build_target_transform,
+#         )
+#     else:
+
+#         dataset_transform_dir = os.path.join(
+#             transform_dir, active_dataset_name, input_transform_key
+#         )
+
+#         print(" >> >> INSIDE _find_or_create_transforms dataset_transform_dir", dataset_transform_dir)
+#         logger.info(" >> >> INSIDE _find_or_create_transforms dataset_transform_dir %s", dataset_transform_dir)
+
+#         os.makedirs(dataset_transform_dir, exist_ok=True)
+#         input_transform_path = os.path.join(dataset_transform_dir, "input.pickle")
+#         target_transform_path = os.path.join(dataset_transform_dir, "target.pickle")
+
+#         #lock_path = os.path.join(transform_dir, ".lock")
+#         #lock = Lock(lock_path, lifetime=timedelta(hours=1))
+#         #print(" >> >> INSIDE _find_or_create_transforms made_lock", lock_path)
+#         #with lock:
+#         print(" <> >< <> >< <> >< <> >< <> >< <> >< <> >< <> >< <> >< <>")
+
+#         if os.path.exists(input_transform_path):
+#             start_time = time.time()
+#             print(" >> >> INSIDE data_utils._find_or_create_transforms: Loading input_transform")
+#             logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: Loading input_transform")
+#             input_transform = load_transform(input_transform_path)
+#             end_time = time.time()
+#             print(f" >> >> INSIDE data_utils._find_or_create_transforms: Loaded input_transform, {end_time-start_time:.4f} seconds")
+#             logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: Loading input_transform %.4f seconds", end_time-start_time)
+#         else:
+#             start_time = time.time()
+#             print(" >> >> INSIDE data_utils._find_or_create_transforms: building input_transform")
+#             logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: building input_transform")
+#             input_transform = _build_transform(
+#                 filename,
+#                 variables,
+#                 active_dataset_name,
+#                 model_src_dataset_name,
+#                 input_transform_key,
+#                 build_input_transform,
+#             )
+#             end_time = time.time()
+#             print(f" >> >> INSIDE data_utils._find_or_create_transforms: built input_transform, {end_time-start_time:.4f} seconds")
+#             logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: built input_transform, %.4f seconds", end_time-start_time)
+#             save_transform(input_transform, input_transform_path)
+
+#         if os.path.exists(target_transform_path):
+#             start_time = time.time()
+#             print(" >> >> INSIDE data_utils._find_or_create_transforms: Loading target_transform")
+#             logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: Loading target_transform")
+#             target_transform = load_transform(target_transform_path)
+#             end_time = time.time()
+#             print(f" >> >> INSIDE data_utils._find_or_create_transforms: Loaded target_transform, {end_time-start_time:.4f} seconds")
+#             logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: Loaded target_transform %.4f seconds", end_time-start_time)
+#         else:
+#             if evaluation:
+#                 raise RuntimeError(
+#                     "Target transform should only be fitted during training"
+#                 )
+#             start_time = time.time()
+#             print(" >> >> INSIDE data_utils._find_or_create_transforms: building target_transform")
+#             logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: building target_transform")
+#             target_transform = _build_transform(
+#                 filename,
+#                 target_variables,
+#                 active_dataset_name,
+#                 model_src_dataset_name,
+#                 target_transform_keys,
+#                 build_target_transform,
+#             )
+#             end_time = time.time()
+#             print(f" >> >> INSIDE data_utils._find_or_create_transforms: built target_transform, {end_time-start_time:.4f} seconds")
+#             logger.info(" >> >> INSIDE data_utils._find_or_create_transforms: built target_transform %.4f seconds", end_time-start_time)
+#             save_transform(target_transform, target_transform_path)
+
+#     gc.collect
+#     return input_transform, target_transform

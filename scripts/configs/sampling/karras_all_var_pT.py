@@ -25,7 +25,7 @@ def get_sampling_config():
 
     eval.checkpoint_name = "epoch=236-val_loss=0.0698.ckpt" # diffusion_
 
-    eval.n_samples = 4
+    eval.n_samples = 5
     # eval.location_config = 'colorado'
 
     config.sampling = ml_collections.ConfigDict()

@@ -11,9 +11,11 @@ from torch.optim.lr_scheduler import (
     StepLR,
     LambdaLR,
 )
-import lightning as pl
+import pytorch_lightning as pl
 import numpy as np
+import logging
 
+logger = logging.getLogger(__name__)
 
 class LightningBase(pl.LightningModule):
     """
@@ -87,9 +89,11 @@ class LightningBase(pl.LightningModule):
         return bs
 
     def training_step(self, batch, batch_idx):
+        #logger.info(f" >> >> INSIDE base training_step | batch[0] {batch[0].detach().cpu().numpy()} batch[1] {batch[1].detach().cpu().numpy()}")
         bs = self.get_batchsize(batch)
         _, loss = self.shared_step(batch)
-
+        
+        logger.info(f" >> >> INSIDE base training_step | loss {loss['loss'].detach().cpu().numpy()}")
         self._log_loss(loss, batch_size=bs)
 
         return loss["loss"]
@@ -99,6 +103,8 @@ class LightningBase(pl.LightningModule):
         bs = self.get_batchsize(batch)
         _, loss = self.shared_step(batch, "val_")
         self.model.train()
+
+        logger.info(f" >> >> INSIDE base training_step | val_loss {loss['val_loss'].detach().cpu().numpy()}")
         self._log_loss(loss, "val_", batch_size=bs)
 
         return loss["val_loss"]

@@ -181,6 +181,7 @@ scripts/multivariate_predictors
 scripts/gan_downscaling
 scripts/benchmarks
 scripts/plots
+scripts/out
 
 scripts/lightning_logs
 !requirements.txt

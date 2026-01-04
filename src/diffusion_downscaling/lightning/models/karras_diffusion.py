@@ -1,5 +1,8 @@
 import torch.nn as nn
 import torch
+import logging
+
+logger = logging.getLogger(__name__)
 
 from ...sampling.k_sampling import append_dims
 
@@ -85,10 +88,15 @@ class AbstractKarrasDenoiser(nn.Module):
         ]
         c_noise = self.sigma_converter(sigma)
 
-        return (
-            self.inner_model(input * c_in, cond, c_noise, **kwargs) * c_out
-            + input * c_skip
-        )
+        out = self.inner_model(input * c_in, cond, c_noise, **kwargs) * c_out + input * c_skip
+
+        logger.info(f" >> >> INSIDE AbstractKarrasDenoiser forward {out.detach().cpu().numpy()}")
+        # return (
+        #     self.inner_model(input * c_in, cond, c_noise, **kwargs) * c_out
+        #     + input * c_skip
+        # )
+
+        return out
 
 
 class EDMDenoiser(AbstractKarrasDenoiser):

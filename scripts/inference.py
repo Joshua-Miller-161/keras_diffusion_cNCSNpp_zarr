@@ -65,6 +65,8 @@ def run_eval(config, sampling_config, predictions_only):
 
     data_path = Path(config.data.dataset_path) if config.data.dataset_path else None
     location_config = dict(sampling_config.eval).get("location_config")
+    if not hasattr(config.model, "location_parameter_config"):
+        config.model.location_parameter_config = None
 
     base_output_dir = Path(config.base_output_dir)
     run_name = config.run_name

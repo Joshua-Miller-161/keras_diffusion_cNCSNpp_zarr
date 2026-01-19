@@ -9,9 +9,11 @@ import pytorch_lightning as pl
 import yaml
 from typing import Any
 from dotenv import load_dotenv, dotenv_values, find_dotenv
-
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, TQDMProgressBar
 from pytorch_lightning.strategies import DDPStrategy
+import logging
+
+logger = logging.getLogger(__name__)
 
 from ..data.scaling import DataScaler
 from ..data.data_loading import get_dataloader, prepare_and_scale_data
@@ -90,7 +92,8 @@ def build_model(config, checkpoint_name=None):
             # checkpoint_name = output_dir + f"/chkpts/{checkpoint_name}"
             
             checkpoint_name = os.path.join(config_['WORK_DIR'], "checkpoints", config.data.dataset, config.run_name)
-
+            logger.info(f" >> >> INSIDE buid_model | checkpoint_name {checkpoint_name}")
+            
         model = model_class.load_from_checkpoint(
             checkpoint_name,
             model=base_model,

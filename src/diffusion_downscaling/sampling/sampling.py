@@ -18,8 +18,10 @@ from pathlib import Path
 from functools import reduce
 import json
 import os
-
 from typing import List, Tuple, Callable, Dict
+import logging
+
+logger = logging.getLogger(__name__)
 
 from ..lightning import utils as lightning_utils
 from ..data.scaling import DataScaler
@@ -205,7 +207,8 @@ class Sampler:
 
     def setup_output_dirs(self, base_output: str, output_string: str):
         output_path = Path(base_output) / output_string
-        predictions_dir = output_path / "predictions"
+        #predictions_dir = output_path / "predictions"
+        predictions_dir = output_path
         results_dir = output_path / "plots"
         predictions_dir.mkdir(exist_ok=True, parents=True)
         results_dir.mkdir(exist_ok=True, parents=True)
@@ -243,6 +246,7 @@ class Sampler:
             )
 
             print(f"Saving samples to {output_filepath}...")
+            logger.info(f" >> >> inside sampling.generate_predictions | output_filepath {output_filepath}")
             xr_samples.to_netcdf(output_filepath)
 
     def run_sampling(self, coords, *args, **kwargs):

@@ -15,6 +15,11 @@ from pathlib import Path
 import argparse
 import importlib
 import torch
+from dotenv import load_dotenv, dotenv_values, find_dotenv
+import logging
+
+logger = logging.getLogger(__name__)
+
 torch.set_float32_matmul_precision("medium")
 
 sys.path.append(os.getcwd())
@@ -23,16 +28,16 @@ from src.diffusion_downscaling.lightning.utils import configure_location_args, b
 from src.diffusion_downscaling.data.scaling import DataScaler
 #import diffusion_downscaling.lightning.utils as lightning_utils
 
-from ..src.diffusion_downscaling.sampling.sampling import Sampler
+from src.diffusion_downscaling.sampling.sampling import Sampler
 #from diffusion_downscaling.sampling.sampling import Sampler
 
-from ..src.diffusion_downscaling.evaluation.utils import build_evaluation_callable
+from src.diffusion_downscaling.evaluation.utils import build_evaluation_callable
 #from diffusion_downscaling.evaluation.utils import build_evaluation_callable
 
-from ..src.diffusion_downscaling.sampling.utils import create_sampling_configurations
+from src.diffusion_downscaling.sampling.utils import create_sampling_configurations
 #from diffusion_downscaling.sampling.utils import create_sampling_configurations
 
-from ..src.diffusion_downscaling.data.constants import TRAINING_COORDS_LOOKUP
+from src.diffusion_downscaling.data.constants import TRAINING_COORDS_LOOKUP
 #from diffusion_downscaling.data.constants import TRAINING_COORDS_LOOKUP
 
 from configs.metrics.basic_eval_metrics import EVAL_METRICS as eval_metrics
@@ -57,7 +62,13 @@ def run_eval(config, sampling_config, predictions_only):
         indices to those used during training.)
     :param predictions_only: bool, flag indicating whether to generate predictions only.
     """
+    #----------------------------------------------------------------
+    # Get variables from .env file
 
+    load_dotenv()
+
+    config_ = dotenv_values(find_dotenv(usecwd=True))
+    #-----------------------------------------------------------------
     config.data.eval_indices = sampling_config.eval_indices
     output_variables = config.data.variables[1]
 
@@ -67,11 +78,13 @@ def run_eval(config, sampling_config, predictions_only):
     location_config = dict(sampling_config.eval).get("location_config")
     if not hasattr(config.model, "location_parameter_config"):
         config.model.location_parameter_config = None
-
-    base_output_dir = Path(config.base_output_dir)
+    #-----------------------------------------------------------------
+    base_output_dir = config_['WORK_DIR']
     run_name = config.run_name
     project_name = config.project_name
-    output_dir = base_output_dir / project_name / run_name
+    output_dir = os.path.join(config_['WORK_DIR'], 'samples', DATASET FROM TRAINING CONFIG) #
+    #-----------------------------------------------------------------
+
     custom_dset = dict(sampling_config).get("eval_dataset")
     if custom_dset is not None:
         data_path = Path(custom_dset)
@@ -91,6 +104,9 @@ def run_eval(config, sampling_config, predictions_only):
 
     eval_config = sampling_config.eval
     checkpoint_name = eval_config.checkpoint_name
+    logger.info(f" >> >> INSIDE inference | checkpoint_name {checkpoint_name}")
+    print(f" >> >> INSIDE inference | checkpoint_name {checkpoint_name}")
+    
     model = build_model(config, checkpoint_name)
 
     config.training.batch_size = sampling_config.batch_size
@@ -110,6 +126,10 @@ def run_eval(config, sampling_config, predictions_only):
         sampling_config.output_format,
     )
     base_output = output_dir / eval_config.eval_output_dir
+
+    logger.info(f" >> >> INSIDE inference | base_output: {base_output}")
+    print(f" >> >> INSIDE inference | base_output: {base_output}")
+
     num_samples = eval_config.n_samples
 
     eval_callable = build_evaluation_callable(

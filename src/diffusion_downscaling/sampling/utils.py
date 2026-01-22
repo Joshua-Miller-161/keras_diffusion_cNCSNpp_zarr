@@ -14,6 +14,10 @@ from .k_sampling import (
     get_sigmas_karras_sqrt,
 )
 from .k_sampling import sample_euler, sample_dpm_2, sample_heun
+import inspect
+import logging
+
+logger = logging.getLogger(__name__)
 
 dictfilt = lambda x, y: dict([(i, x[i]) for i in x if i in set(y)])
 
@@ -51,6 +55,25 @@ _SCHEDULE_LOOKUP = {
     "ve": get_sigmas_ve,
 }
 
+def _filter_callable_kwargs(callable_obj, config, label):
+    signature = inspect.signature(callable_obj)
+    if any(
+        param.kind == inspect.Parameter.VAR_KEYWORD
+        for param in signature.parameters.values()
+    ):
+        return config
+    allowed_keys = set(signature.parameters.keys())
+    filtered = {key: value for key, value in config.items() if key in allowed_keys}
+    dropped = sorted(set(config) - allowed_keys)
+    if dropped:
+        logger.warning(
+            "Dropping unsupported %s args for %s: %s",
+            label,
+            getattr(callable_obj, "__name__", str(callable_obj)),
+            ", ".join(dropped),
+        )
+    return filtered
+
 
 def build_schedule(schedule_config):
     config = dict(schedule_config)
@@ -63,6 +86,7 @@ def build_schedule(schedule_config):
     except Exception as e:
         print(f"Schedule {schedule_type} had incorrect config {config}")
         raise e
+    config = _filter_callable_kwargs(schedule_callable, config, "schedule")
     return schedule_callable, config
 
 
@@ -86,6 +110,7 @@ def build_sampling_callable_and_config(sampling_config):
         print(f"Schedule {schedule_type} not supported. Is there a typo?")
         raise e
 
+    config = _filter_callable_kwargs(sampling_callable, config, "sampler")
     return sampling_callable, config
 
 

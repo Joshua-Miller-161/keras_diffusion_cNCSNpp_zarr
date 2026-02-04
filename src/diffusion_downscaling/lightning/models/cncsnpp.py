@@ -35,11 +35,35 @@ import functools
 import logging
 logger = logging.getLogger(__name__)
 
-from layers import get_act, get_timestep_embedding, default_init, ddpm_conv3x3, Upsample, Downsample
-from layerspp import GaussianFourierProjection, AttnBlockpp, ResnetBlockBigGANpp, ResnetBlockDDPMpp, Combine
-from utils import get_sigmas, register_model
-#from .data_scripts.data_utils import get_variables
-from ...data_Josh.utils import get_variables
+from .layers import (
+    get_act,
+    get_timestep_embedding,
+    default_init,
+    ddpm_conv3x3,
+    Upsample,
+    Downsample,
+)
+from .layerspp import (
+    GaussianFourierProjection,
+    AttnBlockpp,
+    ResnetBlockBigGANpp,
+    ResnetBlockDDPMpp,
+    Combine,
+)
+from .utils import get_sigmas, register_model
+
+
+def _get_variable_counts(config):
+    if hasattr(config.data, "variables"):
+        cond_vars, output_vars = config.data.variables
+        return len(cond_vars), len(output_vars)
+    if hasattr(config.data, "predictors") and hasattr(config.data, "predictands"):
+        return len(config.data.predictors.variables), len(config.data.predictands.variables)
+    if hasattr(config.data, "dataset_name"):
+        from ...data_Josh.utils import get_variables
+        cond_vars, output_vars = get_variables(config.data.dataset_name)
+        return len(cond_vars), len(output_vars)
+    raise ValueError("Unable to determine conditioning and output variable counts from config.")
 
 @register_model(name="cncsnpp")
 class cNCSNpp(nn.Module):
@@ -133,11 +157,7 @@ class cNCSNpp(nn.Module):
             raise ValueError(f"resblock type {resblock_type} unrecognized.")
 
         # Channel bookkeeping
-        # Regular data
-        # cond_var_channels, output_channels = list(map(len, get_variables(config.data.dataset_name)))
-
-        # Per var
-        cond_var_channels, output_channels = list(map(len, get_variables(config)))
+        cond_var_channels, output_channels = _get_variable_counts(config)
         if config.data.time_inputs:
             cond_time_channels = 3
         else:

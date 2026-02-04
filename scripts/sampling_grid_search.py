@@ -1,7 +1,6 @@
 """Grid search sampling parameters and score with CRPS."""
 import sys
 sys.dont_write_bytecode = True
-
 import argparse
 import importlib
 import logging
@@ -10,7 +9,6 @@ import re
 from functools import reduce
 from pathlib import Path
 from typing import Sequence
-
 import numpy as np
 import pandas as pd
 import torch
@@ -20,6 +18,12 @@ import xskillscore as xs
 from dask.diagnostics import ProgressBar
 from dotenv import load_dotenv, dotenv_values, find_dotenv
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
+
+torch.set_float32_matmul_precision("medium")
+
+sys.path.append(os.getcwd())
 
 from src.diffusion_downscaling.data.scaling import DataScaler
 from src.diffusion_downscaling.lightning import utils as lightning_utils
@@ -36,13 +40,6 @@ from src.diffusion_downscaling.evaluation.utils import (
     _open_dataset,
     prepare_prediction_data,
 )
-
-logger = logging.getLogger(__name__)
-
-torch.set_float32_matmul_precision("medium")
-
-sys.path.append(os.getcwd())
-
 
 def parse_module(path: str) -> str:
     return path.replace(".py", "").replace("/", ".")
@@ -246,7 +243,7 @@ def run_grid_search(config, sampling_config):
     config.data.eval_indices = sampling_config.eval_indices
     output_variables = config.data.variables[1]
 
-    use_josh_pipeline = getattr(config.data, "use_josh_pipeline", False)
+    use_josh_pipeline = getattr(config.data, "use_josh_pipeline", True)
 
     data_path = Path(config.data.dataset_path) if config.data.dataset_path else None
     location_config = dict(sampling_config.eval).get("location_config")
@@ -320,7 +317,7 @@ def run_grid_search(config, sampling_config):
         logger.info("Location config: %s", location_config)
         print(f" >> Location config: {location_config}")
         _, evaluation_sampler.eval_dl = lightning_utils.build_dataloaders(
-            config, data_scaler.transform, num_workers=20
+            config, data_scaler.transform, num_workers=1
         )
 
         output_string = evaluation_sampler.format_output_dir_name(config_tuple)

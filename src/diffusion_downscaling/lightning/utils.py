@@ -303,11 +303,12 @@ def create_indices(full_indices_config):
 
 def build_dataloaders(config, transform, num_workers):
 
-    if getattr(config.data, "use_josh_pipeline", False):
+    if getattr(config.data, "use_josh_pipeline", True):
         datamodule = build_josh_datamodule(config, num_workers=num_workers)
         datamodule.setup("fit")
         return datamodule.train_dataloader(), datamodule.val_dataloader()
 
+    logger.info(" >> >> INSIDE lightning.utils | PASSED BY if getattr use_josh_pipeline")
     dl_configs = [
         (config.data.train_indices, True, False),
         (config.data.eval_indices, False, True),

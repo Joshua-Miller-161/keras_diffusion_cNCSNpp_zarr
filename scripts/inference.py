@@ -15,6 +15,7 @@ from pathlib import Path
 import argparse
 import importlib
 import torch
+import re
 from dotenv import load_dotenv, dotenv_values, find_dotenv
 import logging
 
@@ -46,6 +47,13 @@ from configs.metrics.basic_eval_metrics import EVAL_METRICS as eval_metrics
 def parse_module(path):
     return path.replace(".py", "").replace("/", ".")
 
+def parse_epoch_from_checkpoint(checkpoint_name):
+    if not checkpoint_name:
+        return ''
+    match = re.search(r"epoch[=_](\d+)", str(checkpoint_name))
+    if match:
+        return 'epoch='+str(int(match.group(1)))
+    return ''
 
 def run_eval(config, sampling_config, predictions_only=True):
     """Run evaluation over all sampling configurations give configs.
@@ -69,20 +77,37 @@ def run_eval(config, sampling_config, predictions_only=True):
 
     config_ = dotenv_values(find_dotenv(usecwd=True))
     #-----------------------------------------------------------------
+    eval_config = sampling_config.eval
+    checkpoint_name = eval_config.checkpoint_name
+    logger.info(f" >> >> INSIDE inference | checkpoint_name {checkpoint_name}")
+    print(f" >> >> INSIDE inference | checkpoint_name {checkpoint_name}")
+
     config.data.eval_indices = sampling_config.eval_indices
     output_variables = config.data.variables[1]
 
-    use_josh_pipeline = getattr(config.data, "use_josh_pipeline", False)
+    use_josh_pipeline = getattr(config.data, "use_josh_pipeline", True)
 
     data_path = Path(config.data.dataset_path) if config.data.dataset_path else None
     location_config = dict(sampling_config.eval).get("location_config")
     if not hasattr(config.model, "location_parameter_config"):
         config.model.location_parameter_config = None
     #-----------------------------------------------------------------
-    base_output_dir = config_['WORK_DIR']
-    run_name = config.run_name
-    project_name = config.project_name
-    output_dir = os.path.join(config_['WORK_DIR'], 'samples', config.data.dataset_name, sampling_config.eval_dataset.rsplit('/', 1)[-1].split('.', 1)[0])
+    checkpoint_epoch = parse_epoch_from_checkpoint(checkpoint_name)
+    if checkpoint_epoch is None:
+        raise ValueError(
+            f"Unable to parse epoch from checkpoint name: {checkpoint_name}"
+        )
+    #-----------------------------------------------------------------
+    # Set up path where samples are saved
+
+    eval_filename = sampling_config.eval_dataset.rsplit('/', 1)[-1].split('.', 1)[0]
+    output_dir = os.path.join(
+        config_['WORK_DIR'], 
+        'samples', 
+        config.data.dataset_name, 
+        eval_filename,
+        config.run_name,
+        checkpoint_epoch)
 
     print(f" >> >> INSIDE inference | output_dir {output_dir}")
     logger.info(f" >> >> INSIDE inference | output_dir {output_dir}")
@@ -104,11 +129,6 @@ def run_eval(config, sampling_config, predictions_only=True):
         config = configure_location_args(config, data_path)
         data_scaler_path = sampling_config.get('data_scaler_path') or output_dir / 'scaler_parameters.pkl'
         data_scaler = build_or_load_data_scaler(config, data_scaler_path)
-
-    eval_config = sampling_config.eval
-    checkpoint_name = eval_config.checkpoint_name
-    logger.info(f" >> >> INSIDE inference | checkpoint_name {checkpoint_name}")
-    print(f" >> >> INSIDE inference | checkpoint_name {checkpoint_name}")
     
     model = build_model(config, checkpoint_name)
 

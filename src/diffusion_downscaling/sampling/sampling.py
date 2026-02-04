@@ -180,7 +180,7 @@ class Sampler:
             coords = select_custom_coordinates(xr_data, location_config, buffer_width)
             main_config.data.location_config = location_config
             _, self.eval_dl = lightning_utils.build_dataloaders(
-                main_config, self.data_scaler.transform, num_workers=20
+                main_config, self.data_scaler.transform, num_workers=1
             )
 
             output_string = self.format_output_dir_name(config)

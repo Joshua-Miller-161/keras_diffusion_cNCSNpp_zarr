@@ -1,6 +1,5 @@
 import ml_collections
 
-
 def get_sampling_config():
 
     config = ml_collections.ConfigDict()
@@ -21,9 +20,9 @@ def get_sampling_config():
     config.eval = ml_collections.ConfigDict()
     eval = config.eval
     eval.eval_output_dir = "diff"
-    config.eval_dataset = "/gang/j_miller/data/zarr/val_consolidated_time1_elev.zarr"
+    config.eval_dataset = "/work/scratch-nopw2/j_miller/data/zarr/val_consolidated_time1_elev.zarr"
 
-    eval.checkpoint_name = "/gang/j_miller/temp/checkpoints/zarr/josh_zarr_example/epoch=4-val_loss=0.0204.ckpt" # diffusion_
+    eval.checkpoint_name = "/gws/nopw/j04/bris_climdyn/j_miller/temp/checkpoints/zarr/josh_zarr_example/epoch=9-val_loss=nan.ckpt" # diffusion_
 
     eval.n_samples = 5
     # eval.location_config = 'colorado'
@@ -51,15 +50,5 @@ def get_sampling_config():
 
     # Alias for compatibility with existing sampling utilities.
     sampling.schedule = grid_search
-
-    sampling.grid_search = ml_collections.ConfigDict()
-    grid_search = sampling.grid_search
-    grid_search.type = "karras"
-    grid_search.s_churn = [6, 8, 10, 12, 14]
-    grid_search.s_noise = [0.985, 0.995, 1.005, 1.015, 1.025]
-    grid_search.n = [12, 16, 20, 24, 28]
-    grid_search.rho = [3, 5, 7, 9, 11]
-    grid_search.sigma_min = 0.02
-    grid_search.sigma_max = 80
 
     return config

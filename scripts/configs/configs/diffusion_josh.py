@@ -5,8 +5,8 @@ from .defaults import get_default_configs
 def get_config():
     config = get_default_configs()
 
-    config.run_name = "josh_zarr_example"
-    config.project_name = "diffusion_downscaling"
+    config.run_name = "grid_search"
+    config.project_name = "grid_search"
     config.model_type = "diffusion"
     config.diffusion_type = "karras"
 

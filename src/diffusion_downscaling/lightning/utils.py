@@ -15,9 +15,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from ..data.scaling import DataScaler
-from ..data.data_loading import get_dataloader, prepare_and_scale_data
-from ..data.constants import TRAINING_COORDS_LOOKUP
+#from ..data.scaling import DataScaler
+#from ..data.data_loading import get_dataloader, prepare_and_scale_data
+#from ..data.constants import TRAINING_COORDS_LOOKUP
 from ..data_Josh.data_module import LightningDataModule as JoshDataModule
 
 from .ema import EMA
@@ -160,20 +160,20 @@ def build_or_load_data_scaler(config, data_scaler_parameters_path = None):
     return data_scaler
 
 
-def build_data_scaler(data_path, variable_scaler_map, variable_location_config, split_config):
-    split = create_indices(split_config)
-    ds = prepare_and_scale_data(data_path, split, variable_location_config, data_transform=None)
-    data_scaler = DataScaler(variable_scaler_map)
-    data_scaler.fit(ds)
-    ds.close()
+# def build_data_scaler(data_path, variable_scaler_map, variable_location_config, split_config):
+#     split = create_indices(split_config)
+#     ds = prepare_and_scale_data(data_path, split, variable_location_config, data_transform=None)
+#     data_scaler = DataScaler(variable_scaler_map)
+#     data_scaler.fit(ds)
+#     ds.close()
 
-    return data_scaler
+#     return data_scaler
 
 
-def load_data_scaler(parameters_path):
-    data_scaler = DataScaler({})
-    data_scaler.load_scaler_parameters(parameters_path)
-    return data_scaler
+# def load_data_scaler(parameters_path):
+#     data_scaler = DataScaler({})
+#     data_scaler.load_scaler_parameters(parameters_path)
+#     return data_scaler
     
 
 def get_training_config(training_config, gradient_clip_val, device):
@@ -212,13 +212,14 @@ def build_trainer(training_config, gradient_clip_val, callback_config, precision
         )
         trainer_args["use_distributed_sampler"] = num_gpus > 1
     else:
+        # --- FIX IS HERE ---
         trainer_args["accelerator"] = "cpu"
-        trainer_args["devices"] = None
+        trainer_args["devices"] = 1  # CPU requires an int > 0, not None
         trainer_args["strategy"] = "auto"
         trainer_args["use_distributed_sampler"] = False
     
-    trainer_args["log_every_n_steps"]=10
-    trainer_args["val_check_interval"]=1.0
+    trainer_args["log_every_n_steps"] = 10
+    trainer_args["val_check_interval"] = 1.0
 
     trainer = pl.Trainer(
         precision=convert_precision(precision),

@@ -77,14 +77,15 @@ def get_default_configs():
     model.conditional = True
     model.dropout = 0.1
     model.nonlinearity = "silu"
+    model.fourier_scale = 16
 
     # How to process the noise level (sigma) scalar conditioning information
     # Fourier best suited for our setup, but can be positional or
     model.embedding_type = "fourier"
     model.diffusion = True
     model.resblock_type = "biggan"
-    model.progressive = "output_skip"
-    model.progressive_input = "input_skip"
+    model.progressive = "none"
+    model.progressive_input = "residual"
     model.progressive_combine = "sum"
     model.fir = False
     model.fir_kernel = [1, 3, 3, 1]

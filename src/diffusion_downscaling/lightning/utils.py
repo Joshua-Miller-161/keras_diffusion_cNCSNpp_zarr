@@ -35,6 +35,11 @@ load_dotenv()
 config_ = dotenv_values(find_dotenv(usecwd=True))
 print(config_['WORK_DIR'])
 
+load_dotenv()
+
+config_ = dotenv_values(find_dotenv(usecwd=True))
+print(config_['WORK_DIR'])
+
 _MODELS_DICT = {
     "diffusion": LightningDiffusion,
     "gan": LightningGAN,

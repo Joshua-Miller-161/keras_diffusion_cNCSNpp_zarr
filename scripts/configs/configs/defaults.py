@@ -17,7 +17,7 @@ def get_default_configs():
 
     # GENERIC TRAINING OPTIONS 
     config.training = training = ml_collections.ConfigDict()
-    config.training.batch_size = 16  # 128
+    config.training.batch_size = 2  # 128
     
     training.n_epochs = 100
     training.continuous = True

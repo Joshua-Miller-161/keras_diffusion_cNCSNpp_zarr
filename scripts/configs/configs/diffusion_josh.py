@@ -11,7 +11,7 @@ def get_config():
     config.diffusion_type = "karras"
 
     training = config.training
-    training.batch_size = 8
+    training.batch_size = 2
     training.loss_weights = [1.0]
 
     data = config.data

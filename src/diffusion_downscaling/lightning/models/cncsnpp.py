@@ -122,14 +122,14 @@ class cNCSNpp(nn.Module):
         Upsample_ = functools.partial(Upsample, with_conv=resamp_with_conv, fir=fir, fir_kernel=fir_kernel)
 
         if progressive == "output_skip":
-            self.pyramid_upsample = Upsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)  # in_ch won’t be used
+            self.pyramid_upsample = Upsample(in_ch=1, fir=fir, fir_kernel=fir_kernel, with_conv=False)  # in_ch won’t be used
         elif progressive == "residual":
             pyramid_upsample = functools.partial(Upsample, fir=fir, fir_kernel=fir_kernel, with_conv=True)
 
         Downsample_ = functools.partial(Downsample, with_conv=resamp_with_conv, fir=fir, fir_kernel=fir_kernel)
 
         if progressive_input == "input_skip":
-            self.pyramid_downsample = Downsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)  # in_ch won’t be used
+            self.pyramid_downsample = Downsample(in_ch=1, fir=fir, fir_kernel=fir_kernel, with_conv=False)  # in_ch won’t be used
         elif progressive_input == "residual":
             pyramid_downsample = functools.partial(Downsample, fir=fir, fir_kernel=fir_kernel, with_conv=True)
 
@@ -291,7 +291,7 @@ class cNCSNpp(nn.Module):
         for i_level in range(self.num_resolutions):
             for _ in range(self.num_res_blocks):
                 h = modules[m_idx](hs[-1], temb); m_idx += 1
-                if h.shape[-1] in self.attn_resolutions:
+                if self.all_resolutions[i_level] in self.attn_resolutions:
                     h = modules[m_idx](h); m_idx += 1
                 hs.append(h)
 
@@ -327,7 +327,7 @@ class cNCSNpp(nn.Module):
             for _ in range(self.num_res_blocks + 1):
                 h = modules[m_idx](torch.cat([h, hs.pop()], dim=1), temb); m_idx += 1
 
-            if h.shape[-1] in self.attn_resolutions:
+            if self.all_resolutions[i_level] in self.attn_resolutions:
                 h = modules[m_idx](h); m_idx += 1
 
             if self.config.model.progressive != "none":

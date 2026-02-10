@@ -20,6 +20,7 @@ def get_default_configs():
     config.training.batch_size = 16  # 128
     
     training.n_epochs = 100
+    training.continuous = True
     # Buffer around the output fields when calculating the loss. 
     # Experimental option to mitigate against boundary effects;
     # didn't improve performance
@@ -81,6 +82,19 @@ def get_default_configs():
     # Fourier best suited for our setup, but can be positional or
     model.embedding_type = "fourier"
     model.diffusion = True
+    model.resblock_type = "biggan"
+    model.progressive = "output_skip"
+    model.progressive_input = "input_skip"
+    model.progressive_combine = "sum"
+    model.fir = False
+    model.fir_kernel = [1, 3, 3, 1]
+    model.skip_rescale = True
+    model.init_scale = 0.0
+    model.scale_by_sigma = False
+    model.sigma_min = 0.01
+    model.sigma_max = 50.0
+    model.num_scales = 1000
+    model.loc_spec_channels = 0
 
     # Generic optimisation parameters - these are all relatively safe choices
     config.optim = optim = ml_collections.ConfigDict()

@@ -35,11 +35,35 @@ import functools
 import logging
 logger = logging.getLogger(__name__)
 
-from layers import get_act, get_timestep_embedding, default_init, ddpm_conv3x3, Upsample, Downsample
-from layerspp import GaussianFourierProjection, AttnBlockpp, ResnetBlockBigGANpp, ResnetBlockDDPMpp, Combine
-from utils import get_sigmas, register_model
-#from .data_scripts.data_utils import get_variables
-from ...data_Josh.utils import get_variables
+from .layers import (
+    get_act,
+    get_timestep_embedding,
+    default_init,
+    ddpm_conv3x3,
+    Upsample,
+    Downsample,
+)
+from .layerspp import (
+    GaussianFourierProjection,
+    AttnBlockpp,
+    ResnetBlockBigGANpp,
+    ResnetBlockDDPMpp,
+    Combine,
+)
+from .utils import get_sigmas, register_model
+
+
+def _get_variable_counts(config):
+    if hasattr(config.data, "variables"):
+        cond_vars, output_vars = config.data.variables
+        return len(cond_vars), len(output_vars)
+    if hasattr(config.data, "predictors") and hasattr(config.data, "predictands"):
+        return len(config.data.predictors.variables), len(config.data.predictands.variables)
+    if hasattr(config.data, "dataset_name"):
+        from ...data_Josh.utils import get_variables
+        cond_vars, output_vars = get_variables(config.data.dataset_name)
+        return len(cond_vars), len(output_vars)
+    raise ValueError("Unable to determine conditioning and output variable counts from config.")
 
 @register_model(name="cncsnpp")
 class cNCSNpp(nn.Module):
@@ -98,14 +122,14 @@ class cNCSNpp(nn.Module):
         Upsample_ = functools.partial(Upsample, with_conv=resamp_with_conv, fir=fir, fir_kernel=fir_kernel)
 
         if progressive == "output_skip":
-            self.pyramid_upsample = Upsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)  # in_ch won’t be used
+            self.pyramid_upsample = Upsample(in_ch=1, fir=fir, fir_kernel=fir_kernel, with_conv=False)  # in_ch won’t be used
         elif progressive == "residual":
             pyramid_upsample = functools.partial(Upsample, fir=fir, fir_kernel=fir_kernel, with_conv=True)
 
         Downsample_ = functools.partial(Downsample, with_conv=resamp_with_conv, fir=fir, fir_kernel=fir_kernel)
 
         if progressive_input == "input_skip":
-            self.pyramid_downsample = Downsample(fir=fir, fir_kernel=fir_kernel, with_conv=False)  # in_ch won’t be used
+            self.pyramid_downsample = Downsample(in_ch=1, fir=fir, fir_kernel=fir_kernel, with_conv=False)  # in_ch won’t be used
         elif progressive_input == "residual":
             pyramid_downsample = functools.partial(Downsample, fir=fir, fir_kernel=fir_kernel, with_conv=True)
 
@@ -133,11 +157,7 @@ class cNCSNpp(nn.Module):
             raise ValueError(f"resblock type {resblock_type} unrecognized.")
 
         # Channel bookkeeping
-        # Regular data
-        # cond_var_channels, output_channels = list(map(len, get_variables(config.data.dataset_name)))
-
-        # Per var
-        cond_var_channels, output_channels = list(map(len, get_variables(config)))
+        cond_var_channels, output_channels = _get_variable_counts(config)
         if config.data.time_inputs:
             cond_time_channels = 3
         else:
@@ -271,7 +291,7 @@ class cNCSNpp(nn.Module):
         for i_level in range(self.num_resolutions):
             for _ in range(self.num_res_blocks):
                 h = modules[m_idx](hs[-1], temb); m_idx += 1
-                if h.shape[-1] in self.attn_resolutions:
+                if self.all_resolutions[i_level] in self.attn_resolutions:
                     h = modules[m_idx](h); m_idx += 1
                 hs.append(h)
 
@@ -307,7 +327,7 @@ class cNCSNpp(nn.Module):
             for _ in range(self.num_res_blocks + 1):
                 h = modules[m_idx](torch.cat([h, hs.pop()], dim=1), temb); m_idx += 1
 
-            if h.shape[-1] in self.attn_resolutions:
+            if self.all_resolutions[i_level] in self.attn_resolutions:
                 h = modules[m_idx](h); m_idx += 1
 
             if self.config.model.progressive != "none":

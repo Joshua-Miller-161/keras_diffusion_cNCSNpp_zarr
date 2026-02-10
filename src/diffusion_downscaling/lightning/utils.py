@@ -28,6 +28,7 @@ from ..yang_cm.utils import create_model as create_cm_model
 from .models.diffusion import LightningDiffusion, setup_edm_model, setup_vp_model
 from .models.deterministic import LightningDeterministic
 from .models.gan import LightningGAN
+from .models.cncsnpp import cNCSNpp
 
 load_dotenv()
 
@@ -57,7 +58,7 @@ def build_model(config, checkpoint_name=None):
     }
 
     if model_type == "diffusion":
-        base_model = create_cm_model(config)
+        base_model = cNCSNpp(config)
 
         diffusion_type = config.diffusion_type
 

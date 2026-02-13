@@ -64,13 +64,18 @@ def build_model(config, checkpoint_name=None):
 
     if model_type == "diffusion":
         base_model = cNCSNpp(config)
+        loss_model = None
 
         diffusion_type = config.diffusion_type
 
         if diffusion_type == "karras":
-            base_model, loss_config = setup_edm_model(config, base_model, config.device)
+            base_model, loss_config, loss_model = setup_edm_model(
+                config, base_model, config.device
+            )
         elif diffusion_type == "vpsde":
-            base_model, loss_config = setup_vp_model(config, base_model, config.device)
+            base_model, loss_config, loss_model = setup_vp_model(
+                config, base_model, config.device
+            )
 
     elif model_type == "gan":
         base_model = cWGAN_GP(config)
@@ -87,7 +92,13 @@ def build_model(config, checkpoint_name=None):
     base_model = torch.compile(base_model, options={"triton.cudagraphs": True})
 
     if checkpoint_name is None:
-        model = model_class(base_model, loss_config, config.optim, **model_kwargs)
+        model = model_class(
+            base_model,
+            loss_config,
+            config.optim,
+            loss_model=loss_model,
+            **model_kwargs,
+        )
     else:
         if not Path(checkpoint_name).is_file():
             #base_output_dir = Path(config.base_output_dir)
@@ -105,6 +116,7 @@ def build_model(config, checkpoint_name=None):
             model=base_model,
             loss_config=loss_config,
             optimizer_config=config.optim,
+            loss_model=loss_model,
             **model_kwargs,
         )
 

@@ -104,10 +104,8 @@ class LightningBase(pl.LightningModule):
         return loss["loss"]
 
     def validation_step(self, batch, batch_idx):
-        self.model.eval()
         bs = self.get_batchsize(batch)
         _, loss = self.shared_step(batch, "val_")
-        self.model.train()
         
         if is_main_process():
             logger.info(f" >> >> INSIDE base validation_step | val_loss {loss['val_loss'].detach().cpu().numpy()}")

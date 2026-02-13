@@ -1,6 +1,7 @@
 import sys
 sys.dont_write_bytecode = True
 import torch
+import torch.nn as nn
 
 from .base import LightningBase
 from .karras_diffusion import EDMDenoiser, VPDenoiser
@@ -43,13 +44,31 @@ class LightningDiffusion(LightningBase):
 
     @staticmethod
     def _resolve_loss_model(model):
-        if hasattr(model, "loss"):
-            return model
+        # torch.compile can stack wrappers and hide custom methods (e.g. .loss).
+        # Walk common wrapper attributes and module children until we find one.
+        stack = [model]
+        visited = set()
 
-        # torch.compile wrappers often keep the original module here.
-        original_model = getattr(model, "_orig_mod", None)
-        if original_model is not None and hasattr(original_model, "loss"):
-            return original_model
+        while stack:
+            current = stack.pop()
+            if current is None:
+                continue
+
+            current_id = id(current)
+            if current_id in visited:
+                continue
+            visited.add(current_id)
+
+            if hasattr(current, "loss"):
+                return current
+
+            for attr in ("_orig_mod", "module", "model", "inner_model"):
+                maybe_wrapped = getattr(current, attr, None)
+                if maybe_wrapped is not None:
+                    stack.append(maybe_wrapped)
+
+            if isinstance(current, nn.Module):
+                stack.extend(current.children())
 
         return None
 

@@ -84,7 +84,7 @@ def build_model(config, checkpoint_name=None):
     # I could only fix them using an eager backend, after which the model behaves as expected.
     # Should investigate at some point what's going wrong with the LocationParameterField
     # in yang_cm/unet, and how to fix it for different compilation backends.
-    #base_model = torch.compile(base_model, options={"triton.cudagraphs": True})
+    base_model = torch.compile(base_model, options={"triton.cudagraphs": True})
 
     if checkpoint_name is None:
         model = model_class(base_model, loss_config, config.optim, **model_kwargs)

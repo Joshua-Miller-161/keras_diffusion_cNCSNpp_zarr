@@ -5,8 +5,8 @@ from .defaults import get_default_configs
 def get_config():
     config = get_default_configs()
 
-    config.run_name = "grid_search"
-    config.project_name = "grid_search"
+    config.run_name = "karras_cNCSNpp"
+    config.project_name = "karras_cNCSNpp"
     config.model_type = "diffusion"
     config.diffusion_type = "karras"
 
@@ -20,8 +20,8 @@ def get_config():
     data.dataset_name = "zarr"
     data.input_transform_dataset = "zarr"
     data.transform_dir = "./transforms/zarr"
-    data.filename = "train_consolidated_time1_elev.zarr"
-    data.val_filename = "val_consolidated_time1_elev.zarr"
+    data.filename = "train_consolidated_time1.zarr"
+    data.val_filename = "val_consolidated_time1.zarr"
     data.time_inputs = False
     data.prefetch_factor = 2
 

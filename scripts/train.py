@@ -17,7 +17,7 @@ import logging
 from dotenv import load_dotenv, dotenv_values, find_dotenv
 
 sys.path.append(os.path.dirname(os.getcwd()))
-from src.diffusion_downscaling.lightning.utils import build_trainer, configure_location_args, build_josh_datamodule, build_or_load_data_scaler, build_dataloaders, build_model, LossOnlyProgressBar, save_training_config
+from src.diffusion_downscaling.lightning.utils import build_trainer, build_josh_datamodule, build_dataloaders, build_model, LossOnlyProgressBar, save_training_config
 
 from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 from pytorch_lightning import Trainer
@@ -70,7 +70,7 @@ def main(config_path, checkpoint_path=None):
     data_path = Path(config.data.dataset_path)
     logger.info(f" >> INSIDE main | data_path: {data_path}")
 
-    config = configure_location_args(config, data_path)
+    # config = configure_location_args(config, data_path)
     use_josh_pipeline = getattr(config.data, "use_josh_pipeline", False)
 
     if use_josh_pipeline:
@@ -83,10 +83,10 @@ def main(config_path, checkpoint_path=None):
         logger.info(f" >> INSIDE main | built_josh_datamodule")
     else:
         datamodule = None
-        data_scaler = build_or_load_data_scaler(config)
-        training_dataloader, eval_dataloader = build_dataloaders(
-            config, data_scaler.transform, num_workers=1
-        )
+        #data_scaler = build_or_load_data_scaler(config)
+        #training_dataloader, eval_dataloader = build_dataloaders(
+        #    config, data_scaler.transform, num_workers=1
+        #)
         logger.info(f" >> INSIDE main | built_old_datamodule")
 
     logger.info(f" >> INSIDE main | building_model ...")
@@ -104,8 +104,8 @@ def main(config_path, checkpoint_path=None):
 
     scalar_params_dir = os.path.join(config_['WORK_DIR'], config.data.dataset)
     os.makedirs(scalar_params_dir, exist_ok=True)
-    if not use_josh_pipeline:
-        data_scaler.save_scaler_parameters(os.path.join(scalar_params_dir, 'scaler_parameters.pkl'))
+    # if not use_josh_pipeline:
+    #    data_scaler.save_scaler_parameters(os.path.join(scalar_params_dir, 'scaler_parameters.pkl'))
     #----------------------------------------------------------------
     # Checkpoint path
 

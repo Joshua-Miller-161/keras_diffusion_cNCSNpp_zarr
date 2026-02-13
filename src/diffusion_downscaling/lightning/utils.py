@@ -151,18 +151,18 @@ def save_training_config(config, checkpoint_dir: str) -> str:
     return config_path
 
 
-def build_or_load_data_scaler(config, data_scaler_parameters_path = None):
-    if data_scaler_parameters_path is None:
-        ds_args = (
-            Path(config.data.dataset_path),
-            config.data.variable_scaler_map,
-            config.data.location_config,
-            config.data.train_indices
-        )
-        data_scaler = build_data_scaler(*ds_args)
-    else:
-        data_scaler = load_data_scaler(data_scaler_parameters_path)
-    return data_scaler
+# def build_or_load_data_scaler(config, data_scaler_parameters_path = None):
+#     if data_scaler_parameters_path is None:
+#         ds_args = (
+#             Path(config.data.dataset_path),
+#             config.data.variable_scaler_map,
+#             config.data.location_config,
+#             config.data.train_indices
+#         )
+#         data_scaler = build_data_scaler(*ds_args)
+#     else:
+#         data_scaler = load_data_scaler(data_scaler_parameters_path)
+#     return data_scaler
 
 
 # def build_data_scaler(data_path, variable_scaler_map, variable_location_config, split_config):
@@ -189,15 +189,15 @@ def get_training_config(training_config, gradient_clip_val, device):
     return trainer_args
 
 
-def configure_location_args(config, data_path):
+# def configure_location_args(config, data_path):
 
-    if config.model.location_parameters is None:
-        config.model.location_parameter_config = None
-        return config
-    ds = xr.open_dataset(data_path)
-    coords = ds.lat.values, ds.lon.values
-    config.model.location_parameter_config = coords, config.model.location_parameters
-    return config
+#     if config.model.location_parameters is None:
+#         config.model.location_parameter_config = None
+#         return config
+#     ds = xr.open_dataset(data_path)
+#     coords = ds.lat.values, ds.lon.values
+#     config.model.location_parameter_config = coords, config.model.location_parameters
+#     return config
 
 
 def build_trainer(training_config, gradient_clip_val, callback_config, precision, device, logger):
@@ -217,7 +217,6 @@ def build_trainer(training_config, gradient_clip_val, callback_config, precision
         )
         trainer_args["use_distributed_sampler"] = num_gpus > 1
     else:
-        # --- FIX IS HERE ---
         trainer_args["accelerator"] = "cpu"
         trainer_args["devices"] = 1  # CPU requires an int > 0, not None
         trainer_args["strategy"] = "auto"
@@ -275,110 +274,111 @@ def get_callbacks(callback_args):
     return callbacks
 
 
-def setup_custom_training_coords(config, sampling_config):
+# def setup_custom_training_coords(config, sampling_config):
 
-    if config.model.location_parameters is None:
-        training_coords = None
-    else:
-        training_coords = TRAINING_COORDS_LOOKUP[sampling_config.training_dataset]
-    config.data.training_coords = training_coords
-    return config
-
-
-def create_custom_indices(indices_config: dict):
-    indices = []
-    for indices_type, config in indices_config.items():
-        if indices_type == "date_range":
-            start_date, end_date = config
-            new_indices = xr.date_range(
-                np.datetime64(start_date), np.datetime64(end_date)
-            )
-        elif indices_type == "isel":
-            new_indices = config
-    indices.append(new_indices)
-    return np.concatenate(indices, axis=0)
+#     if config.model.location_parameters is None:
+#         training_coords = None
+#     else:
+#         training_coords = TRAINING_COORDS_LOOKUP[sampling_config.training_dataset]
+#     config.data.training_coords = training_coords
+#     return config
 
 
-def create_indices(full_indices_config):
-    full_indices_config = dict(full_indices_config)
-    split = np.array(full_indices_config.pop("split"))
-    if len(full_indices_config) > 0:
-        return split, create_custom_indices(full_indices_config)
-    else:
-        return split
+# def create_custom_indices(indices_config: dict):
+#     indices = []
+#     for indices_type, config in indices_config.items():
+#         if indices_type == "date_range":
+#             start_date, end_date = config
+#             new_indices = xr.date_range(
+#                 np.datetime64(start_date), np.datetime64(end_date)
+#             )
+#         elif indices_type == "isel":
+#             new_indices = config
+#     indices.append(new_indices)
+#     return np.concatenate(indices, axis=0)
+
+
+# def create_indices(full_indices_config):
+#     full_indices_config = dict(full_indices_config)
+#     split = np.array(full_indices_config.pop("split"))
+#     if len(full_indices_config) > 0:
+#         return split, create_custom_indices(full_indices_config)
+#     else:
+#         return split
 
 
 def build_dataloaders(config, transform, num_workers):
 
     if getattr(config.data, "use_josh_pipeline", True):
+        logger.info(" >> >> INSIDE lightning.utils build_dataloaders | use_josh_pipeline")
         datamodule = build_josh_datamodule(config, num_workers=num_workers)
         datamodule.setup("fit")
         return datamodule.train_dataloader(), datamodule.val_dataloader()
 
     logger.info(" >> >> INSIDE lightning.utils | PASSED BY if getattr use_josh_pipeline")
-    dl_configs = [
-        (config.data.train_indices, True, False),
-        (config.data.eval_indices, False, True),
-    ]
-    dls = (
-        build_dataloader(
-            config.data.dataset_path,
-            config.data.variables,
-            indices,
-            transform,
-            config.data.variable_location,
-            config.data.location_config,
-            config.data.image_size,
-            config.training.loss_buffer_width,
-            config.data.training_coords,
-            config.training.batch_size,
-            shuffle=shuffle,
-            evaluation=evaluation,
-            num_workers=num_workers,
-        )
-        for indices, shuffle, evaluation in dl_configs
-    )
+    # dl_configs = [
+    #     (config.data.train_indices, True, False),
+    #     (config.data.eval_indices, False, True),
+    # ]
+    # dls = (
+    #     build_dataloader(
+    #         config.data.dataset_path,
+    #         config.data.variables,
+    #         indices,
+    #         transform,
+    #         config.data.variable_location,
+    #         config.data.location_config,
+    #         config.data.image_size,
+    #         config.training.loss_buffer_width,
+    #         config.data.training_coords,
+    #         config.training.batch_size,
+    #         shuffle=shuffle,
+    #         evaluation=evaluation,
+    #         num_workers=num_workers,
+    #     )
+    #     for indices, shuffle, evaluation in dl_configs
+    # )
 
-    return dls
+    # return dls
 
 
-def build_dataloader(
-    data_path,
-    variables,
-    indices,
-    transform,
-    variable_location,
-    location_config,
-    image_size,
-    buffer_width,
-    training_coords,
-    batch_size,
-    shuffle,
-    evaluation,
-    num_workers,
-):
-    formatted_indices = create_indices(indices)
-    dloader_kwargs = dict(        
-        include_time_inputs=False,
-        variable_location=variable_location,
-        location_config=location_config,
-        image_size=image_size,
-        buffer_width=buffer_width,
-        training_coords=training_coords,
-        batch_size=batch_size,
-        split=formatted_indices,
-        evaluation=evaluation,
-        shuffle=shuffle,
-        num_workers=num_workers,
-    )
+# def build_dataloader(
+#     data_path,
+#     variables,
+#     indices,
+#     transform,
+#     variable_location,
+#     location_config,
+#     image_size,
+#     buffer_width,
+#     training_coords,
+#     batch_size,
+#     shuffle,
+#     evaluation,
+#     num_workers,
+# ):
+#     formatted_indices = create_indices(indices)
+#     dloader_kwargs = dict(        
+#         include_time_inputs=False,
+#         variable_location=variable_location,
+#         location_config=location_config,
+#         image_size=image_size,
+#         buffer_width=buffer_width,
+#         training_coords=training_coords,
+#         batch_size=batch_size,
+#         split=formatted_indices,
+#         evaluation=evaluation,
+#         shuffle=shuffle,
+#         num_workers=num_workers,
+#     )
     
-    dataloader = get_dataloader(
-        data_path,
-        variables,
-        transform,
-        **dloader_kwargs
-    )
-    return dataloader
+#     dataloader = get_dataloader(
+#         data_path,
+#         variables,
+#         transform,
+#         **dloader_kwargs
+#     )
+#     return dataloader
 
 
 def build_josh_datamodule(config, num_workers=0):

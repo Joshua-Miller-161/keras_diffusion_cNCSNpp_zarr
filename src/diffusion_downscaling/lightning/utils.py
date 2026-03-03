@@ -77,6 +77,8 @@ def build_model(config, checkpoint_name=None):
                 config, base_model, config.device
             )
 
+        model_kwargs["ema_decay"] = getattr(config.model, "ema_rate", None)
+
     elif model_type == "gan":
         base_model = cWGAN_GP(config)
         loss_config = config.training.loss_config
@@ -117,7 +119,7 @@ def build_model(config, checkpoint_name=None):
             loss_config=loss_config,
             optimizer_config=config.optim,
             loss_model=loss_model,
-            **model_kwargs,
+            **model_kwargs,  # includes ema_decay for diffusion models
         )
 
     return model

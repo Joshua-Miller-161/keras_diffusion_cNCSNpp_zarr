@@ -11,6 +11,99 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import torch
+
+# Adapted from https://github.com/fadel/pytorch_ema
+class ExponentialMovingAverage:
+    """Maintains exponential moving averages of model parameters.
+
+    Shadow parameters are updated after each training step and can be
+    temporarily swapped in during validation so that metrics reflect the
+    smoothed weights.  The original training weights are always restored
+    before the next training step.
+
+    Args:
+        parameters: Iterable of model parameters to track (typically
+            ``model.parameters()``).
+        decay: EMA decay factor in [0, 1]. Values close to 1 (e.g. 0.999)
+            change slowly and produce a smoother average.
+        use_num_updates: If True, ramps up the effective decay during the
+            first few updates so that early batches are not over-represented.
+    """
+
+    def __init__(self, parameters, decay, use_num_updates=True):
+        if not (0.0 <= decay <= 1.0):
+            raise ValueError("Decay must be between 0 and 1")
+        self.decay = decay
+        self.num_updates = 0 if use_num_updates else None
+        self.shadow_params = [
+            p.clone().detach().to(p.device)
+            for p in parameters
+            if p.requires_grad
+        ]
+        self.collected_params = []
+
+    def update(self, parameters):
+        """Update shadow parameters toward the current model parameters."""
+        if self.decay == 1:
+            self.shadow_params = [
+                p.clone().detach().to(p.device)
+                for p in parameters
+                if p.requires_grad
+            ]
+            return
+
+        decay = self.decay
+        if self.num_updates is not None:
+            self.num_updates += 1
+            decay = min(decay, (1 + self.num_updates) / (10 + self.num_updates))
+
+        one_minus_decay = 1.0 - decay
+        with torch.no_grad():
+            parameters = [p for p in parameters if p.requires_grad]
+            for s_param, param in zip(self.shadow_params, parameters):
+                if s_param.device != param.device:
+                    s_param.data = s_param.data.to(param.device)
+                s_param.sub_(one_minus_decay * (s_param - param))
+
+    def copy_to(self, parameters):
+        """Copy shadow parameters into the model parameters."""
+        parameters = [p for p in parameters if p.requires_grad]
+        for s_param, param in zip(self.shadow_params, parameters):
+            if s_param.device != param.device:
+                s_param.data = s_param.data.to(param.device)
+            param.data.copy_(s_param.data)
+
+    def store(self, parameters):
+        """Save current model parameters so they can be restored later."""
+        self.collected_params = [
+            p.clone().detach().to(p.device) for p in parameters
+        ]
+
+    def restore(self, parameters):
+        """Restore model parameters that were saved by ``store``."""
+        for c_param, param in zip(self.collected_params, parameters):
+            if c_param.device != param.device:
+                c_param = c_param.to(param.device)
+            param.data.copy_(c_param.data)
+
+    def state_dict(self):
+        return {
+            "decay": self.decay,
+            "num_updates": self.num_updates,
+            "shadow_params": [p.cpu() for p in self.shadow_params],
+        }
+
+    def load_state_dict(self, state_dict, device=None):
+        self.decay = state_dict["decay"]
+        self.num_updates = state_dict["num_updates"]
+        self.shadow_params = [
+            p.to(device) if device is not None else p
+            for p in state_dict["shadow_params"]
+        ]
+
+
 import contextlib
 import copy
 import os

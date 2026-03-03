@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from .base import LightningBase
 from .karras_diffusion import EDMDenoiser, VPDenoiser
+from ..ema import ExponentialMovingAverage
 
 
 def setup_edm_model(config, score_model, device):
@@ -28,9 +29,15 @@ class LightningDiffusion(LightningBase):
 
     We rely on the diffusion model to provide the forward pass and loss function,
     which makes this class very light.
+
+    EMA (Exponential Moving Average) of the model parameters is supported via
+    the ``ema_decay`` argument.  When enabled, shadow parameters are updated
+    after every training batch and are swapped in during validation so that
+    logged metrics reflect the smoothed weights.  The EMA state is saved and
+    restored automatically with every checkpoint.
     """
 
-    def __init__(self, model, loss_config, optimizer_config, loss_model=None, **kwargs):
+    def __init__(self, model, loss_config, optimizer_config, loss_model=None, ema_decay=None, **kwargs):
         super().__init__(**kwargs)
 
         self.model = model
@@ -41,6 +48,11 @@ class LightningDiffusion(LightningBase):
 
         self.optimizer_config = optimizer_config
         self.loss_function = self.set_loss_function(loss_config)
+
+        if ema_decay is not None:
+            self.ema = ExponentialMovingAverage(self.parameters(), decay=ema_decay)
+        else:
+            self.ema = None
 
     @staticmethod
     def _resolve_loss_model(model):
@@ -93,3 +105,33 @@ class LightningDiffusion(LightningBase):
             return lightning_module.loss_model.loss(target, condition)
 
         return loss
+
+    # ------------------------------------------------------------------
+    # EMA hooks
+    # ------------------------------------------------------------------
+
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        """Update EMA shadow parameters after each training step."""
+        if self.ema is not None:
+            self.ema.update(self.parameters())
+
+    def on_validation_epoch_start(self):
+        """Swap to EMA weights before running validation."""
+        if self.ema is not None:
+            self.ema.store(self.parameters())
+            self.ema.copy_to(self.parameters())
+
+    def on_validation_epoch_end(self):
+        """Restore training weights after validation completes."""
+        if self.ema is not None:
+            self.ema.restore(self.parameters())
+
+    def on_save_checkpoint(self, checkpoint):
+        """Persist EMA state alongside the model checkpoint."""
+        if self.ema is not None:
+            checkpoint["ema"] = self.ema.state_dict()
+
+    def on_load_checkpoint(self, checkpoint):
+        """Restore EMA state when resuming from a checkpoint."""
+        if self.ema is not None and "ema" in checkpoint:
+            self.ema.load_state_dict(checkpoint["ema"], device=self.device)

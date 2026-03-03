@@ -264,7 +264,7 @@ def get_callbacks(callback_args):
             dirpath=checkpoint_dir,
             filename="{epoch}-{val_loss:.4f}",
             every_n_epochs=1,
-            save_top_k=10,
+            save_top_k=-1,
             monitor="val_loss",
             save_last=True,
         )

@@ -319,39 +319,12 @@ def get_callbacks(callback_args):
 #         return split
 
 
-def build_dataloaders(config, transform, num_workers):
+def build_dataloaders(config, num_workers):
 
-    if getattr(config.data, "use_josh_pipeline", True):
-        logger.info(" >> >> INSIDE lightning.utils build_dataloaders | use_josh_pipeline")
-        datamodule = build_josh_datamodule(config, num_workers=num_workers)
-        datamodule.setup("fit")
-        return datamodule.train_dataloader(), datamodule.val_dataloader()
-
-    logger.info(" >> >> INSIDE lightning.utils | PASSED BY if getattr use_josh_pipeline")
-    # dl_configs = [
-    #     (config.data.train_indices, True, False),
-    #     (config.data.eval_indices, False, True),
-    # ]
-    # dls = (
-    #     build_dataloader(
-    #         config.data.dataset_path,
-    #         config.data.variables,
-    #         indices,
-    #         transform,
-    #         config.data.variable_location,
-    #         config.data.location_config,
-    #         config.data.image_size,
-    #         config.training.loss_buffer_width,
-    #         config.data.training_coords,
-    #         config.training.batch_size,
-    #         shuffle=shuffle,
-    #         evaluation=evaluation,
-    #         num_workers=num_workers,
-    #     )
-    #     for indices, shuffle, evaluation in dl_configs
-    # )
-
-    # return dls
+    logger.info(" >> >> INSIDE lightning.utils build_dataloaders | use_josh_pipeline")
+    datamodule = build_josh_datamodule(config, num_workers=num_workers)
+    datamodule.setup("test")
+    return None, datamodule.test_dataloader()
 
 
 # def build_dataloader(

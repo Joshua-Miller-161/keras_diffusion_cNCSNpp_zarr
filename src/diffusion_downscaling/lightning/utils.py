@@ -319,82 +319,16 @@ def get_callbacks(callback_args):
 #         return split
 
 
-def build_dataloaders(config, transform, num_workers):
+def build_josh_datamodule(config, num_workers=0, mode="train"):
+    """Build the Josh LightningDataModule.
 
-    if getattr(config.data, "use_josh_pipeline", True):
-        logger.info(" >> >> INSIDE lightning.utils build_dataloaders | use_josh_pipeline")
-        datamodule = build_josh_datamodule(config, num_workers=num_workers)
-        datamodule.setup("fit")
-        return datamodule.train_dataloader(), datamodule.val_dataloader()
-
-    logger.info(" >> >> INSIDE lightning.utils | PASSED BY if getattr use_josh_pipeline")
-    # dl_configs = [
-    #     (config.data.train_indices, True, False),
-    #     (config.data.eval_indices, False, True),
-    # ]
-    # dls = (
-    #     build_dataloader(
-    #         config.data.dataset_path,
-    #         config.data.variables,
-    #         indices,
-    #         transform,
-    #         config.data.variable_location,
-    #         config.data.location_config,
-    #         config.data.image_size,
-    #         config.training.loss_buffer_width,
-    #         config.data.training_coords,
-    #         config.training.batch_size,
-    #         shuffle=shuffle,
-    #         evaluation=evaluation,
-    #         num_workers=num_workers,
-    #     )
-    #     for indices, shuffle, evaluation in dl_configs
-    # )
-
-    # return dls
-
-
-# def build_dataloader(
-#     data_path,
-#     variables,
-#     indices,
-#     transform,
-#     variable_location,
-#     location_config,
-#     image_size,
-#     buffer_width,
-#     training_coords,
-#     batch_size,
-#     shuffle,
-#     evaluation,
-#     num_workers,
-# ):
-#     formatted_indices = create_indices(indices)
-#     dloader_kwargs = dict(        
-#         include_time_inputs=False,
-#         variable_location=variable_location,
-#         location_config=location_config,
-#         image_size=image_size,
-#         buffer_width=buffer_width,
-#         training_coords=training_coords,
-#         batch_size=batch_size,
-#         split=formatted_indices,
-#         evaluation=evaluation,
-#         shuffle=shuffle,
-#         num_workers=num_workers,
-#     )
-    
-#     dataloader = get_dataloader(
-#         data_path,
-#         variables,
-#         transform,
-#         **dloader_kwargs
-#     )
-#     return dataloader
-
-
-def build_josh_datamodule(config, num_workers=0):
+    :param config: Config object.
+    :param num_workers: int, number of DataLoader workers.
+    :param mode: str, either "train" (sets up train/val dataloaders) or "test"
+        (sets up test dataloader for inference). Affects shuffle and evaluation flags.
+    """
     data_cfg = config.data
+    is_test = mode == "test"
     return JoshDataModule(
         config=config,
         active_dataset_name=data_cfg.dataset,
@@ -407,8 +341,8 @@ def build_josh_datamodule(config, num_workers=0):
         filename=getattr(data_cfg, "filename", getattr(data_cfg, "train_filename", None)),
         val_filename=getattr(data_cfg, "val_filename", None),
         include_time_inputs=getattr(data_cfg, "time_inputs", False),
-        evaluation=False,
-        shuffle=True,
+        evaluation=is_test,
+        shuffle=not is_test,
         num_workers=num_workers,
         prefetch_factor=getattr(data_cfg, "prefetch_factor", None),
     )

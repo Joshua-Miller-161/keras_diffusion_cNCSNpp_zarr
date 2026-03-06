@@ -48,7 +48,6 @@ class AbstractKarrasDenoiser(nn.Module):
         """
         return self.sigma_data**2 / (sigma**2 + self.sigma_data**2)
 
-    @torch.compile
     def loss(self, input, condition, **kwargs):
         """Key function for training EDM-type diffusion models.
 
@@ -81,7 +80,6 @@ class AbstractKarrasDenoiser(nn.Module):
         )
         return (img_flattened * c_weight.unsqueeze(1)).mean(dim=0)
 
-    @torch.compile
     def forward(self, input, cond, sigma, **kwargs):
         c_skip, c_out, c_in = [
             append_dims(x, input.ndim) for x in self.get_scalings(sigma)

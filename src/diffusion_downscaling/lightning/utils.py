@@ -324,8 +324,8 @@ def build_dataloaders(config, transform, num_workers):
     if getattr(config.data, "use_josh_pipeline", True):
         logger.info(" >> >> INSIDE lightning.utils build_dataloaders | use_josh_pipeline")
         datamodule = build_josh_datamodule(config, num_workers=num_workers)
-        datamodule.setup("fit")
-        return datamodule.train_dataloader(), datamodule.val_dataloader()
+        datamodule.setup("test")
+        return None, datamodule.test_dataloader()
 
     logger.info(" >> >> INSIDE lightning.utils | PASSED BY if getattr use_josh_pipeline")
     # dl_configs = [

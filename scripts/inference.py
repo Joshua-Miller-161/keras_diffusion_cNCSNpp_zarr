@@ -119,7 +119,6 @@ def run_eval(config, sampling_config, predictions_only=True):
         config.data.dataset_path = str(data_path)
         if use_josh_pipeline:
             config.data.filename = str(data_path)
-            config.data.val_filename = str(data_path)
 
     if use_josh_pipeline:
         data_scaler = DataScaler({})

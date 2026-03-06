@@ -25,24 +25,11 @@ torch.set_float32_matmul_precision("medium")
 
 sys.path.append(os.getcwd())
 
-from src.diffusion_downscaling.lightning.utils import configure_location_args, build_or_load_data_scaler, build_model, setup_custom_training_coords
-from src.diffusion_downscaling.data.scaling import DataScaler
-#import diffusion_downscaling.lightning.utils as lightning_utils
-
+from src.diffusion_downscaling.lightning.utils import build_model
 from src.diffusion_downscaling.sampling.sampling import Sampler
-#from diffusion_downscaling.sampling.sampling import Sampler
-
 from src.diffusion_downscaling.evaluation.utils import build_evaluation_callable
-#from diffusion_downscaling.evaluation.utils import build_evaluation_callable
-
 from src.diffusion_downscaling.sampling.utils import create_sampling_configurations
-#from diffusion_downscaling.sampling.utils import create_sampling_configurations
-
-from src.diffusion_downscaling.data.constants import TRAINING_COORDS_LOOKUP
-#from diffusion_downscaling.data.constants import TRAINING_COORDS_LOOKUP
-
 from configs.metrics.basic_eval_metrics import EVAL_METRICS as eval_metrics
-#from configs.metrics.basic_eval_metrics import EVAL_METRICS as eval_metrics
 
 def parse_module(path):
     return path.replace(".py", "").replace("/", ".")
@@ -85,8 +72,6 @@ def run_eval(config, sampling_config, predictions_only=True):
     config.data.eval_indices = sampling_config.eval_indices
     output_variables = config.data.variables[1]
 
-    use_josh_pipeline = getattr(config.data, "use_josh_pipeline", True)
-
     data_path = Path(config.data.dataset_path) if config.data.dataset_path else None
     location_config = dict(sampling_config.eval).get("location_config")
     if not hasattr(config.model, "location_parameter_config"):
@@ -117,34 +102,18 @@ def run_eval(config, sampling_config, predictions_only=True):
     if custom_dset is not None:
         data_path = Path(custom_dset)
         config.data.dataset_path = str(data_path)
-        if use_josh_pipeline:
-            config.data.filename = str(data_path)
-            config.data.val_filename = str(data_path)
+        config.data.filename = str(data_path)
 
-    if use_josh_pipeline:
-        data_scaler = DataScaler({})
-    else:
-        if data_path is None:
-            data_path = Path(config.data.dataset_path)
-        config = configure_location_args(config, data_path)
-        data_scaler_path = sampling_config.get('data_scaler_path') or output_dir / 'scaler_parameters.pkl'
-        data_scaler = build_or_load_data_scaler(config, data_scaler_path)
-    
     model = build_model(config, checkpoint_name)
 
     config.training.batch_size = sampling_config.batch_size
-    config = setup_custom_training_coords(config, sampling_config)
 
     if predictions_only:
-        variables = (config.data.variables[0], [])
-        if not use_josh_pipeline:
-            data_scaler.set_transform_exclusion(config.data.variables[1])
-        config.data.variables = variables    
+        config.data.variables = (config.data.variables[0], [])
 
     evaluation_sampler = Sampler(
         model,
         config.model_type,
-        data_scaler,
         output_variables,
         sampling_config.output_format,
     )

@@ -24,18 +24,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 from ..lightning import utils as lightning_utils
-from ..data.scaling import DataScaler
-from ..data.data_loading import  select_custom_coordinates
-
-
-def _open_dataset(path: Path):
-    path = Path(path)
-    if path.suffix == ".zarr" or path.is_dir():
-        try:
-            return xr.open_zarr(path, consolidated=True)
-        except (KeyError, ValueError, OSError):
-            return xr.open_zarr(path)
-    return xr.open_dataset(path)
 
 
 def make_predictions_filename(directory, config, prefix="predictions"):
@@ -125,7 +113,6 @@ class Sampler:
         self,
         model: nn.Module,
         model_type: str,
-        data_scaler: DataScaler,
         output_variables: List[str],
         output_string_format: str,
     ):
@@ -133,15 +120,12 @@ class Sampler:
 
         :param model: PyTorch model to sample from
         :param model_type: str, model type (diffusion, gan, deterministic)
-        :param data_scaler: DataScaler, data scaler to rescale the model outputs. Must have a transform
-            method that acts on a xarray object.
         :param output_variables: List[str], output variable names.
         :param output_string_format: str, formattable string that can include config-specific parameters
             to generate the name of the output directory.
         """
         self.model = model
         self.eval_dl = None
-        self.data_scaler = data_scaler
         self.output_variables = output_variables
         self.output_string_format = output_string_format
         self.model_specific_sampling = self.model_sampling_callables[model_type]
@@ -170,17 +154,15 @@ class Sampler:
         """
         self.precision = self.precision_lookup[main_config.precision]
 
-        xr_data = _open_dataset(main_config.data.dataset_path)
         buffer_width = main_config.training.loss_buffer_width
 
         sampling_args, all_configs = eval_args
 
         for config in all_configs:
             location_config = config[2]["location_config"]
-            coords = select_custom_coordinates(xr_data, location_config, buffer_width)
             main_config.data.location_config = location_config
             _, self.eval_dl = lightning_utils.build_dataloaders(
-                main_config, self.data_scaler.transform, num_workers=1
+                main_config, None, num_workers=1
             )
 
             output_string = self.format_output_dir_name(config)
@@ -192,7 +174,7 @@ class Sampler:
             print(f"Beginning predictions on {output_string}", flush=True)
             self.generate_predictions(
                 config,
-                coords,
+                None,
                 num_samples,
                 predictions_dir,
                 sampling_args,
@@ -202,7 +184,7 @@ class Sampler:
 
             if evaluator is not None:
                 print(f"Beginning evaluation on {output_string}", flush=True)
-                evaluator(predictions_dir, results_dir, coords, buffer_width)
+                evaluator(predictions_dir, results_dir, None, buffer_width)
                 print(f"Finished evaluation on {output_string}", flush=True)
 
     def setup_output_dirs(self, base_output: str, output_string: str):
@@ -357,37 +339,29 @@ class Sampler:
         return preds_ds
 
     def rescale_outputs(self, preds: np.ndarray):
-        """Rescale outputs back to true data units using the data_scaler.
+        """Invert target transforms to recover true data units (e.g. actual precipitation).
 
-        All predictions are done in scaled units; we rescale back to true
-        data units before saving them to file.
+        The Josh pipeline stores target transforms in FastCollate.target_transforms
+        (loaded from pickle files saved during training). These are retrieved via
+        _get_target_transforms() and inverted here so that model outputs are converted
+        back to real physical values.
 
-        :param preds: np.ndarray, model predictions.
-        :return: Dict, rescaled outputs.
+        :param preds: np.ndarray, model predictions in transformed space.
+        :return: Dict, predictions in original data units.
         """
         scaled_outputs = {}
         target_transforms = self._get_target_transforms()
-        if target_transforms:
-            for var_idx, variable in enumerate(self.output_variables):
-                transform = target_transforms.get(variable)
-                if transform is None:
-                    if hasattr(self.data_scaler, "variable_scaler_map") and (
-                        variable in self.data_scaler.variable_scaler_map
-                    ):
-                        scaled_outputs[variable] = self.data_scaler.variable_scaler_map[
-                            variable
-                        ].inverse_transform(preds[:, var_idx])
-                    else:
-                        scaled_outputs[variable] = preds[:, var_idx]
-                else:
-                    scaled_outputs[variable] = self._invert_with_transform(
-                        transform, variable, preds[:, var_idx]
-                    )
-            return scaled_outputs
         for var_idx, variable in enumerate(self.output_variables):
-            scaled_outputs[variable] = self.data_scaler.variable_scaler_map[
-                variable
-            ].inverse_transform(preds[:, var_idx])
+            if target_transforms:
+                transform = target_transforms.get(variable)
+            else:
+                transform = None
+            if transform is not None:
+                scaled_outputs[variable] = self._invert_with_transform(
+                    transform, variable, preds[:, var_idx]
+                )
+            else:
+                scaled_outputs[variable] = preds[:, var_idx]
         return scaled_outputs
 
     def format_output_dir_name(self, config):

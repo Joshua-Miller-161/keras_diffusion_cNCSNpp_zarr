@@ -268,6 +268,7 @@ def build_josh_datamodule(config, num_workers=0, mode="train"):
         shuffle=not is_test,
         num_workers=num_workers,
         prefetch_factor=getattr(data_cfg, "prefetch_factor", None),
+        random_flip=getattr(data_cfg, "random_flip", False)
     )
 
 

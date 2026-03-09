@@ -30,7 +30,7 @@ class FastCollate:
             time_range=None,
             input_variable_order=None,
             target_variable_order=None,
-            random_flip=True,
+            random_flip=False,
             fail_on_nan=False,
         ):
         # expected: input_transforms is either None or dict: {var: transform_obj}

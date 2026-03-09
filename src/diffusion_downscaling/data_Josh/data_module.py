@@ -39,7 +39,8 @@ class LightningDataModule(pl.LightningDataModule):
         evaluation=False,
         shuffle=True,
         num_workers=0,
-        prefetch_factor=None
+        prefetch_factor=None,
+        random_flip=False
     ):
         super().__init__()
         self.config = config
@@ -54,7 +55,8 @@ class LightningDataModule(pl.LightningDataModule):
         self.evaluation = evaluation
         self.shuffle = shuffle
         self.num_workers = num_workers
-        self.prefetch_factor = prefetch_factor 
+        self.prefetch_factor = prefetch_factor
+        self.random_flip = random_flip
 
         self.time_range = TIME_RANGE if self.include_time_inputs else None
 
@@ -125,14 +127,16 @@ class LightningDataModule(pl.LightningDataModule):
             self.train_collate_fn = FastCollate(
                 input_transforms=self.train_transforms,
                 target_transforms=self.train_target_transforms,
-                time_range=self.time_range
+                time_range=self.time_range,
+                random_flip=self.random_flip
             )
             
             # Using train transforms for val (standard practice, adjust if needed)
             self.val_collate_fn = FastCollate(
                 input_transforms=self.train_transforms,
                 target_transforms=self.train_target_transforms,
-                time_range=self.time_range
+                time_range=self.time_range,
+                random_flip=False
             )
 
         if stage == "test" or stage is None:
@@ -155,11 +159,7 @@ class LightningDataModule(pl.LightningDataModule):
                 input_transforms=self.test_transforms,
                 target_transforms=self.test_target_transforms,
                 time_range=self.time_range,
-                random_flip=False,  # Never flip during inference — flipping conditioning
-                                    # independently each pass causes samples for the same
-                                    # timestep to be conditioned on differently-oriented
-                                    # atmospheric inputs, breaking inter-sample coherence
-                                    # and alignment with ground truth.
+                random_flip=False
             )
 
     def train_dataloader(self):
@@ -210,6 +210,7 @@ class LightningDataModule(pl.LightningDataModule):
         kwargs['shuffle'] = False
         kwargs['drop_last'] = False
         kwargs['collate_fn'] = self.test_collate_fn
+        kwargs['random_flip'] = False
         kwargs.pop('multiprocessing_context', None) # Drop multiprocessing safely
 
         xr_dataset = DownscalingDataset(

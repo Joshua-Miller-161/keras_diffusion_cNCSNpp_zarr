@@ -24,6 +24,7 @@ def get_config():
     data.val_filename = "time=1_lat=10_lon=10_threshold=15_val_sub7.zarr"
     data.time_inputs = False
     data.prefetch_factor = 2
+    data.random_flip = False
 
     data.predictands = ml_collections.ConfigDict()
     data.predictands.variables = ("precipitation",)

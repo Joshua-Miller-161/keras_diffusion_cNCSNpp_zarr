@@ -189,10 +189,10 @@ def _find_or_create_transforms_per_variable_from_config(
             save_transform(xfm, input_transform_path)
             input_transforms[v] = xfm
 
-    # Build/load target transforms
-    if evaluation:
-        if target_vars:
-            raise RuntimeError("Target transform should only be fitted during training")
+    # # Build/load target transforms
+    # if evaluation:
+    #     if target_vars:
+    #         raise RuntimeError("Target transform should only be fitted during training")
 
     for v in target_vars:
         target_transform_path = os.path.join(dataset_transform_dir, f"target_{v}_{target_transform_keys_dict[v]}.pickle")
@@ -204,21 +204,24 @@ def _find_or_create_transforms_per_variable_from_config(
             print(f" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |{v}| load_transform {end_time-start_time} seconds")
             
         else:
-            start_time = time.time()
-            xfm = _build_transform_per_variable_from_config(
-                filename,
-                [v],
-                active_dataset_name,
-                model_src_dataset_name,
-                target_transform_keys_dict,
-                build_target_transform
-            )[v]
-            end_time = time.time()
-            logger.info(" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |%s| build_transform %.4f seconds", v, end_time-start_time)
-            print(f" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |{v}| load_transform {end_time-start_time} seconds")
-            
-            save_transform(xfm, target_transform_path)
-            target_transforms[v] = xfm
+            if evaluation:
+                raise RuntimeError(" << << Target transforms should only be fitted on training data. Run train.py >> >>")
+            else:
+                start_time = time.time()
+                xfm = _build_transform_per_variable_from_config(
+                    filename,
+                    [v],
+                    active_dataset_name,
+                    model_src_dataset_name,
+                    target_transform_keys_dict,
+                    build_target_transform
+                )[v]
+                end_time = time.time()
+                logger.info(" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |%s| build_transform %.4f seconds", v, end_time-start_time)
+                print(f" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |{v}| load_transform {end_time-start_time} seconds")
+                
+                save_transform(xfm, target_transform_path)
+                target_transforms[v] = xfm
 
     gc.collect()
     return input_transforms, target_transforms

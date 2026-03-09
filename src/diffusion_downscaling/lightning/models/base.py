@@ -77,6 +77,10 @@ class LightningBase(pl.LightningModule):
 
         :returns: None, dict of losses
         """
+
+        assert not torch.any(torch.isnan(batch[0])).item(), ' < < < ERROR > > > Input data has NaNs'
+        assert not torch.any(torch.isnan(batch[1])).item(), ' < < < ERROR > > > Target data has NaNs'
+
         unreduced_loss = self.loss_function(self, batch[1], batch[0])
         if self.weights is not None:
             losses = self.reduce_loss(unreduced_loss)

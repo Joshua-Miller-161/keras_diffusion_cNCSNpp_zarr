@@ -63,34 +63,24 @@ class LightningDataModule(pl.LightningDataModule):
         self.train_data = 69
         self.val_data = 69
         self.test_data = 69
-        # self.train_transform = 69
-        # self.train_target_transform = 69
-        # self.test_transform = 69
-        # self.test_target_transform = 69
 
         self.train_len = 69
         self.val_len = 69
 
-        # just above DataLoader call: build kwargs robustly
+        # Base kwargs built robustly. 
+        # shuffle, drop_last, and collate_fn are intentionally left out 
+        # so they can be explicitly set per-dataloader.
         self.dl_kwargs = dict(
             batch_size=self.batch_size,
-            shuffle=self.shuffle,
-            collate_fn=None, # Will be set later
             num_workers=self.num_workers,
             pin_memory=True,
             persistent_workers=self.num_workers > 0,
-            drop_last=True,
             worker_init_fn=_worker_init_fn,
         )
 
         if self.num_workers > 0:
-            # set multiprocessing context
             self.dl_kwargs["multiprocessing_context"] = ctx
 
-            # decide prefetch factor:
-            # - if user left prefetch_factor as None => set a sensible default (2)
-            # - if user provided a positive integer => use it
-            # - if user provided invalid value (<=0) => coerce to default
             default_pf = 2
             pf_user = self.prefetch_factor
             if pf_user is None:
@@ -109,8 +99,8 @@ class LightningDataModule(pl.LightningDataModule):
         if is_main_process():
             print(" >> >> inside lightningDataModule.setup")
         logger.info(" >> >> inside lightningDataModule.setup")
+        
         if stage == "fit" or stage is None:
-            # For TRAIN: do NOT materialize. Keep transforms.
             self.train_zarr_path, self.train_transforms, self.train_target_transforms = get_xr_dataset(
                 self.active_dataset_name,
                 self.model_src_dataset_name,
@@ -121,7 +111,6 @@ class LightningDataModule(pl.LightningDataModule):
             )
             self.train_len = _get_zarr_length(self.train_zarr_path)
 
-            # For VAL: fine to materialize because you use num_workers=0
             self.val_zarr_path, _, _ = get_xr_dataset(
                 self.active_dataset_name,
                 self.model_src_dataset_name,
@@ -132,12 +121,19 @@ class LightningDataModule(pl.LightningDataModule):
             )
             self.val_len = _get_zarr_length(self.val_zarr_path)
 
-            self.dl_kwargs['collate_fn'] = FastCollate(
+            # Store collate instances safely on the class
+            self.train_collate_fn = FastCollate(
                 input_transforms=self.train_transforms,
                 target_transforms=self.train_target_transforms,
                 time_range=self.time_range
             )
-
+            
+            # Using train transforms for val (standard practice, adjust if needed)
+            self.val_collate_fn = FastCollate(
+                input_transforms=self.train_transforms,
+                target_transforms=self.train_target_transforms,
+                time_range=self.time_range
+            )
 
         if stage == "test" or stage is None:
             print(" >> >> INSIDE data_module setup <<TEST>>")
@@ -148,14 +144,14 @@ class LightningDataModule(pl.LightningDataModule):
                 self.config,
                 self.transform_dir,
                 self.filename,
-                evaluation=self.evaluation,    # keep 0 workers here too
+                evaluation=self.evaluation,
             )
             print(" >> >> INSIDE data_module setup <<TEST>> got_xr_dataset")
 
             self.test_len = _get_zarr_length(self.test_zarr_path)
             print(" >> >> INSIDE data_module setup <<TEST>> zarr_len =", self.test_len)
 
-            self.dl_kwargs['collate_fn'] = FastCollate(
+            self.test_collate_fn = FastCollate(
                 input_transforms=self.test_transforms,
                 target_transforms=self.test_target_transforms,
                 time_range=self.time_range
@@ -169,9 +165,11 @@ class LightningDataModule(pl.LightningDataModule):
             print(" >> >> inside lightningDataModule.train_dataloader", type(self.train_data))
         logger.info(" >> >> inside lightningDataModule.train_dataloader [Rank %d]: %s", rank, type(self.train_data))
         
-        # keep workers modest; oversubscription hurts I/O
-        # num_workers = 0 #min(4, max(2, (os.cpu_count() or 8) // max(1, world_size)))
-        # spawn context recommended (shown previously)
+        # Copy base kwargs and apply train-specific settings
+        kwargs = self.dl_kwargs.copy()
+        kwargs['shuffle'] = self.shuffle
+        kwargs['drop_last'] = True
+        kwargs['collate_fn'] = self.train_collate_fn
 
         xr_dataset = DownscalingDataset(
             self.train_zarr_path,
@@ -180,12 +178,15 @@ class LightningDataModule(pl.LightningDataModule):
             self.time_range,
             self.train_len
         )
-
-        data_loader = DataLoader(xr_dataset, **self.dl_kwargs)
-        
-        return data_loader
+        return DataLoader(xr_dataset, **kwargs)
 
     def val_dataloader(self):
+        # Copy base kwargs and apply val-specific settings
+        kwargs = self.dl_kwargs.copy()
+        kwargs['shuffle'] = False
+        kwargs['drop_last'] = False
+        kwargs['collate_fn'] = self.val_collate_fn
+
         xr_dataset = DownscalingDataset(
             self.val_zarr_path,
             self.variables,
@@ -193,15 +194,19 @@ class LightningDataModule(pl.LightningDataModule):
             self.time_range,
             self.val_len
         )
-
-        self.dl_kwargs['shuffle'] = False
-        self.dl_kwargs['drop_last'] = False
-        
-        data_loader = DataLoader(xr_dataset, **self.dl_kwargs)
-        
-        return data_loader
+        return DataLoader(xr_dataset, **kwargs)
 
     def test_dataloader(self):
+        # Copy base kwargs and forcibly override for zero-worker inference
+        kwargs = self.dl_kwargs.copy()
+        kwargs['num_workers'] = 0
+        kwargs['prefetch_factor'] = None
+        kwargs['persistent_workers'] = False
+        kwargs['shuffle'] = False
+        kwargs['drop_last'] = False
+        kwargs['collate_fn'] = self.test_collate_fn
+        kwargs.pop('multiprocessing_context', None) # Drop multiprocessing safely
+
         xr_dataset = DownscalingDataset(
             self.test_zarr_path,
             self.variables,
@@ -209,11 +214,4 @@ class LightningDataModule(pl.LightningDataModule):
             self.time_range,
             self.test_len
         )
-
-        self.dl_kwargs['num_workers'] = 0
-        self.dl_kwargs['shuffle'] = False
-        self.dl_kwargs['drop_last'] = False
-
-        data_loader = DataLoader(xr_dataset, **self.dl_kwargs)
-        
-        return data_loader
+        return DataLoader(xr_dataset, **kwargs)

@@ -88,7 +88,7 @@ class AbstractKarrasDenoiser(nn.Module):
 
         out = self.inner_model(input * c_in, cond, c_noise, **kwargs) * c_out + input * c_skip
 
-        logger.info(f" >> >> INSIDE AbstractKarrasDenoiser forward {out.detach().cpu().numpy()}")
+        #logger.info(f" >> >> INSIDE AbstractKarrasDenoiser forward {out.detach().cpu().numpy()}")
         # return (
         #     self.inner_model(input * c_in, cond, c_noise, **kwargs) * c_out
         #     + input * c_skip

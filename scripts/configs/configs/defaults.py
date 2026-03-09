@@ -17,7 +17,7 @@ def get_default_configs():
 
     # GENERIC TRAINING OPTIONS 
     config.training = training = ml_collections.ConfigDict()
-    config.training.batch_size = 2  # 128
+    config.training.batch_size = 12  # 128
     
     training.n_epochs = 100
     training.continuous = True
@@ -59,7 +59,7 @@ def get_default_configs():
     model.location_parameters = None
     # Deprecated side conditioning
     model.side_conditioning = False
-    model.ema_rate = None
+    model.ema_rate = 0.999
     # Attention calculation, options "legacy", "local", "rope"
     # "legacy" is standard, global attention; may scale badly to large input fields
     # "local" is local attention, "rope" is a rotary positional encoding

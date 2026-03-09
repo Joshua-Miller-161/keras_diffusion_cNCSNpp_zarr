@@ -5,8 +5,8 @@ from .defaults import get_default_configs
 def get_config():
     config = get_default_configs()
 
-    config.run_name = "karras_cNCSNpp"
-    config.project_name = "karras_cNCSNpp"
+    config.run_name = "karras_cNCSNpp_severe_weather_unet_thresh15"
+    config.project_name = "karras_cNCSNpp_severe_weather_unet_thresh15"
     config.model_type = "diffusion"
     config.diffusion_type = "karras"
 
@@ -16,12 +16,12 @@ def get_config():
 
     data = config.data
     data.use_josh_pipeline = True
-    data.dataset = "zarr"
-    data.dataset_name = "zarr"
+    data.dataset = "severe_weather_unet"
+    data.dataset_name = "severe_weather_unet"
     data.input_transform_dataset = "zarr"
     data.transform_dir = "./transforms/zarr"
-    data.filename = "train_consolidated_time1.zarr"
-    data.val_filename = "val_consolidated_time1.zarr"
+    data.filename = "time=1_lat=10_lon=10_threshold=15_train.zarr"
+    data.val_filename = "time=1_lat=10_lon=10_threshold=15_val_sub7.zarr"
     data.time_inputs = False
     data.prefetch_factor = 2
 

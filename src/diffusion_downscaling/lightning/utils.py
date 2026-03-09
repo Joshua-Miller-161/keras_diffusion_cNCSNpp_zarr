@@ -348,6 +348,64 @@ def build_josh_datamodule(config, num_workers=0, mode="train"):
     )
 
 
+def resolve_checkpoint_path(checkpoint_base_path, user_checkpoint=None):
+    """Resolve the checkpoint path to resume training from.
+
+    If ``user_checkpoint`` is provided it is joined with ``checkpoint_base_path``
+    and returned directly (the caller explicitly chose a checkpoint).
+
+    Otherwise the function inspects ``checkpoint_base_path`` for ``.ckpt`` files:
+      1. ``last.ckpt`` exists  → resume from it.
+      2. Other ``.ckpt`` files exist → parse ``epoch=N`` from each filename and
+         resume from the file whose epoch number is highest.
+      3. No ``.ckpt`` files found → log and return ``None`` (train from scratch).
+
+    :param checkpoint_base_path: Directory that holds checkpoint files.
+    :param user_checkpoint: Optional filename/path supplied by the caller via ``-C``.
+    :returns: Absolute path string to resume from, or ``None``.
+    """
+    if user_checkpoint is not None:
+        resolved = str(Path(checkpoint_base_path) / user_checkpoint)
+        logger.info(" >> INSIDE train | Resuming from user-supplied checkpoint: %s", resolved)
+        return resolved
+
+    base = Path(checkpoint_base_path)
+    if not base.exists():
+        logger.info(" >> INSIDE train | Checkpoint directory does not exist: %s. Starting training from scratch.", checkpoint_base_path)
+        return None
+
+    ckpt_files = list(base.glob("*.ckpt"))
+    if not ckpt_files:
+        logger.info(" >> INSIDE train | No checkpoints found in %s. Starting training from scratch.", checkpoint_base_path)
+        return None
+
+    last_ckpt = base / "last.ckpt"
+    if last_ckpt.exists():
+        logger.info(" >> INSIDE train | Auto-resuming from last.ckpt: %s", str(last_ckpt))
+        return str(last_ckpt)
+
+    # Parse epoch numbers and pick the highest
+    import re
+    best_path = None
+    best_epoch = -1
+    for ckpt in ckpt_files:
+        match = re.search(r"epoch=(\d+)", ckpt.name)
+        if match:
+            epoch = int(match.group(1))
+            if epoch > best_epoch:
+                best_epoch = epoch
+                best_path = ckpt
+
+    if best_path is not None:
+        logger.info(" >> INSIDE train | Auto-resuming from latest checkpoint: %s", str(best_path))
+        return str(best_path)
+
+    # Fall back to the first .ckpt file found if no epoch pattern matched
+    fallback = ckpt_files[0]
+    logger.info(" >> INSIDE train | Auto-resuming from checkpoint (no epoch info): %s", str(fallback))
+    return str(fallback)
+
+
 class LossOnlyProgressBar(TQDMProgressBar):
     def __init__(self):
         super().__init__()  # don't forget this :)

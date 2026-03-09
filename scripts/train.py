@@ -17,7 +17,7 @@ import logging
 from dotenv import load_dotenv, dotenv_values, find_dotenv
 
 sys.path.append(os.path.dirname(os.getcwd()))
-from src.diffusion_downscaling.lightning.utils import build_trainer, build_josh_datamodule, build_dataloaders, build_model, LossOnlyProgressBar, save_training_config
+from src.diffusion_downscaling.lightning.utils import build_trainer, build_josh_datamodule, build_dataloaders, build_model, LossOnlyProgressBar, save_training_config, resolve_checkpoint_path
 
 from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 from pytorch_lightning import Trainer
@@ -123,8 +123,7 @@ def main(config_path, checkpoint_path=None):
         "ema_rate": config.model.ema_rate,
         "save_n_epochs": config.training.save_n_epochs
     }
-    if checkpoint_path is not None:
-        checkpoint_path = Path(checkpoint_base_path) / checkpoint_path
+    checkpoint_path = resolve_checkpoint_path(checkpoint_base_path, checkpoint_path)
     logger.info(f" >> INSIDE train | checkpoint_path: {checkpoint_path}")
 
     #----------------------------------------------------------------

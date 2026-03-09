@@ -11,15 +11,20 @@ def setup_edm_model(config, score_model, device):
     sigma_data = 0.5
     loss_config = {"buffer_width": config.training.loss_buffer_width}
     loss_model = EDMDenoiser(score_model, sigma_data, device=device)
-    score_model = torch.compile(loss_model, options={"triton.cudagraphs": True})
-    return score_model, loss_config, loss_model
+    # Do NOT compile here — build_model does a single torch.compile over the complete
+    # model graph for all model types.  Compiling here and again in build_model creates
+    # a doubly-nested compiled wrapper (compiled(compiled(EDMDenoiser(cNCSNpp)))).
+    # With triton.cudagraphs=True that nested capture can freeze the conditioning
+    # tensor from the first batch and silently replay it for every subsequent batch,
+    # making the model appear to ignore the atmospheric conditioning inputs.
+    return loss_model, loss_config, loss_model
 
 
 def setup_vp_model(config, score_model, device):
     loss_config = {"buffer_width": config.training.loss_buffer_width}
     loss_model = VPDenoiser(score_model, device=device)
-    score_model = torch.compile(loss_model, options={"triton.cudagraphs": True})
-    return score_model, loss_config, loss_model
+    # Same reason as setup_edm_model: do not compile here.
+    return loss_model, loss_config, loss_model
 
 
 class LightningDiffusion(LightningBase):

@@ -119,8 +119,9 @@ class EDMDenoiser(AbstractKarrasDenoiser):
         self.register_buffer("log_uniform_l", torch.log(torch.tensor([0.02], device=device)))
 
         if callable(weighting):
+            # A custom callable weighting function was supplied directly.
             self.weighting = weighting
-        if weighting == "karras":
+        elif weighting == "karras":
             self.weighting = torch.ones_like
         elif weighting == "soft-min-snr":
             self.weighting = self._weighting_soft_min_snr

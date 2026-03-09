@@ -125,6 +125,27 @@ def main(config_path, checkpoint_path=None):
     }
     if checkpoint_path is not None:
         checkpoint_path = Path(checkpoint_base_path) / checkpoint_path
+        logger.info(f" >> INSIDE train | checkpoint_path provided explicitly: {checkpoint_path}")
+    else:
+        # Auto-detect latest checkpoint
+        ckpt_files = list(Path(checkpoint_base_path).glob("*.ckpt"))
+        if ckpt_files:
+            # Prefer 'last.ckpt' if it exists, otherwise pick by latest epoch number
+            last_ckpt = Path(checkpoint_base_path) / "last.ckpt"
+            if last_ckpt.exists():
+                checkpoint_path = last_ckpt
+                logger.info(f" >> INSIDE train | Auto-resuming from last.ckpt: {checkpoint_path}")
+            else:
+                # Parse epoch numbers from filenames (e.g. epoch=5-step=100.ckpt)
+                def _epoch_from_name(p):
+                    import re
+                    m = re.search(r"epoch=(\d+)", p.name)
+                    return int(m.group(1)) if m else -1
+
+                checkpoint_path = max(ckpt_files, key=_epoch_from_name)
+                logger.info(f" >> INSIDE train | Auto-resuming from latest checkpoint: {checkpoint_path}")
+        else:
+            logger.info(f" >> INSIDE train | No checkpoints found in {checkpoint_base_path}. Starting training from scratch.")
     logger.info(f" >> INSIDE train | checkpoint_path: {checkpoint_path}")
 
     #----------------------------------------------------------------

@@ -154,7 +154,12 @@ class LightningDataModule(pl.LightningDataModule):
             self.test_collate_fn = FastCollate(
                 input_transforms=self.test_transforms,
                 target_transforms=self.test_target_transforms,
-                time_range=self.time_range
+                time_range=self.time_range,
+                random_flip=False,  # Never flip during inference — flipping conditioning
+                                    # independently each pass causes samples for the same
+                                    # timestep to be conditioned on differently-oriented
+                                    # atmospheric inputs, breaking inter-sample coherence
+                                    # and alignment with ground truth.
             )
 
     def train_dataloader(self):

@@ -3,7 +3,7 @@ import ml_collections
 def get_sampling_config():
 
     config = ml_collections.ConfigDict()
-    config.batch_size = 32
+    config.batch_size = 10
     # config.output_format = "n_20_churn_10_snoise_1.005_rho_3.5_fixed"
     config.output_format = "n_{n}_churn_{s_churn}_snoise_{s_noise}_smin{s_tmin}_rho_{rho}"
     config.eval_indices = {
@@ -20,9 +20,9 @@ def get_sampling_config():
     config.eval = ml_collections.ConfigDict()
     eval = config.eval
     eval.eval_output_dir = "diff"
-    config.eval_dataset = "/work/scratch-nopw2/j_miller/data/zarr/val_consolidated_time1_elev.zarr"
+    config.eval_dataset = "/work/scratch-nopw2/j_miller/data/severe_weather/time=1_lat=10_lon=10_threshold=20_absThresh=50_val_sub7.zarr"
 
-    eval.checkpoint_name = "/gws/nopw/j04/bris_climdyn/j_miller/temp/checkpoints/zarr/josh_zarr_example/epoch=9-val_loss=nan.ckpt" # diffusion_
+    eval.checkpoint_name = "/gws/nopw/j04/bris_climdyn/j_miller/temp/checkpoints/severe_weather/karras_cNCSNpp_severe_weather_20Abs50/epoch=25-val_loss=0.0198.ckpt" # diffusion_
 
     eval.n_samples = 5
     # eval.location_config = 'colorado'
@@ -33,6 +33,8 @@ def get_sampling_config():
     sampling.sampler = ml_collections.ConfigDict()
     sampler = sampling.sampler
     sampler.integrator = "dpm2_heun"
+    sampler.n = 20
+    sampler.rho = 7
     sampler.s_churn = 10
     sampler.s_noise = 1.005
     sampler.s_tmin = 0.04

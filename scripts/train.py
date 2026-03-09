@@ -17,7 +17,7 @@ import logging
 from dotenv import load_dotenv, dotenv_values, find_dotenv
 
 sys.path.append(os.path.dirname(os.getcwd()))
-from src.diffusion_downscaling.lightning.utils import build_trainer, build_josh_datamodule, build_dataloaders, build_model, LossOnlyProgressBar, save_training_config
+from src.diffusion_downscaling.lightning.utils import build_trainer, build_josh_datamodule, build_model, LossOnlyProgressBar, save_training_config
 
 from pytorch_lightning.loggers import WandbLogger, TensorBoardLogger
 from pytorch_lightning import Trainer

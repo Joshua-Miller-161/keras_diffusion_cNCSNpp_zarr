@@ -15,9 +15,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-#from ..data.scaling import DataScaler
-#from ..data.data_loading import get_dataloader, prepare_and_scale_data
-#from ..data.constants import TRAINING_COORDS_LOOKUP
 from ..data_Josh.data_module import LightningDataModule as JoshDataModule
 
 from .ema import EMA
@@ -163,53 +160,12 @@ def save_training_config(config, checkpoint_dir: str) -> str:
     return config_path
 
 
-# def build_or_load_data_scaler(config, data_scaler_parameters_path = None):
-#     if data_scaler_parameters_path is None:
-#         ds_args = (
-#             Path(config.data.dataset_path),
-#             config.data.variable_scaler_map,
-#             config.data.location_config,
-#             config.data.train_indices
-#         )
-#         data_scaler = build_data_scaler(*ds_args)
-#     else:
-#         data_scaler = load_data_scaler(data_scaler_parameters_path)
-#     return data_scaler
-
-
-# def build_data_scaler(data_path, variable_scaler_map, variable_location_config, split_config):
-#     split = create_indices(split_config)
-#     ds = prepare_and_scale_data(data_path, split, variable_location_config, data_transform=None)
-#     data_scaler = DataScaler(variable_scaler_map)
-#     data_scaler.fit(ds)
-#     ds.close()
-
-#     return data_scaler
-
-
-# def load_data_scaler(parameters_path):
-#     data_scaler = DataScaler({})
-#     data_scaler.load_scaler_parameters(parameters_path)
-#     return data_scaler
-    
-
 def get_training_config(training_config, gradient_clip_val, device):
     trainer_args = {}
     trainer_args["accelerator"] = "gpu"  # TODO: FIX
     trainer_args["max_epochs"] = training_config.n_epochs
     trainer_args["gradient_clip_val"] = gradient_clip_val
     return trainer_args
-
-
-# def configure_location_args(config, data_path):
-
-#     if config.model.location_parameters is None:
-#         config.model.location_parameter_config = None
-#         return config
-#     ds = xr.open_dataset(data_path)
-#     coords = ds.lat.values, ds.lon.values
-#     config.model.location_parameter_config = coords, config.model.location_parameters
-#     return config
 
 
 def build_trainer(training_config, gradient_clip_val, callback_config, precision, device, logger):
@@ -284,39 +240,6 @@ def get_callbacks(callback_args):
     pbar = LossOnlyProgressBar()
     callbacks.append(pbar)
     return callbacks
-
-
-# def setup_custom_training_coords(config, sampling_config):
-
-#     if config.model.location_parameters is None:
-#         training_coords = None
-#     else:
-#         training_coords = TRAINING_COORDS_LOOKUP[sampling_config.training_dataset]
-#     config.data.training_coords = training_coords
-#     return config
-
-
-# def create_custom_indices(indices_config: dict):
-#     indices = []
-#     for indices_type, config in indices_config.items():
-#         if indices_type == "date_range":
-#             start_date, end_date = config
-#             new_indices = xr.date_range(
-#                 np.datetime64(start_date), np.datetime64(end_date)
-#             )
-#         elif indices_type == "isel":
-#             new_indices = config
-#     indices.append(new_indices)
-#     return np.concatenate(indices, axis=0)
-
-
-# def create_indices(full_indices_config):
-#     full_indices_config = dict(full_indices_config)
-#     split = np.array(full_indices_config.pop("split"))
-#     if len(full_indices_config) > 0:
-#         return split, create_custom_indices(full_indices_config)
-#     else:
-#         return split
 
 
 def build_josh_datamodule(config, num_workers=0, mode="train"):
@@ -422,3 +345,79 @@ class LossOnlyProgressBar(TQDMProgressBar):
             k: v for k, v in metrics.items()
             if k in ("train_loss", "val_loss")
         }
+
+
+
+# def configure_location_args(config, data_path):
+
+#     if config.model.location_parameters is None:
+#         config.model.location_parameter_config = None
+#         return config
+#     ds = xr.open_dataset(data_path)
+#     coords = ds.lat.values, ds.lon.values
+#     config.model.location_parameter_config = coords, config.model.location_parameters
+#     return config
+
+
+# def setup_custom_training_coords(config, sampling_config):
+
+#     if config.model.location_parameters is None:
+#         training_coords = None
+#     else:
+#         training_coords = TRAINING_COORDS_LOOKUP[sampling_config.training_dataset]
+#     config.data.training_coords = training_coords
+#     return config
+
+
+# def create_custom_indices(indices_config: dict):
+#     indices = []
+#     for indices_type, config in indices_config.items():
+#         if indices_type == "date_range":
+#             start_date, end_date = config
+#             new_indices = xr.date_range(
+#                 np.datetime64(start_date), np.datetime64(end_date)
+#             )
+#         elif indices_type == "isel":
+#             new_indices = config
+#     indices.append(new_indices)
+#     return np.concatenate(indices, axis=0)
+
+
+# def create_indices(full_indices_config):
+#     full_indices_config = dict(full_indices_config)
+#     split = np.array(full_indices_config.pop("split"))
+#     if len(full_indices_config) > 0:
+#         return split, create_custom_indices(full_indices_config)
+#     else:
+#         return split
+
+
+# def build_or_load_data_scaler(config, data_scaler_parameters_path = None):
+#     if data_scaler_parameters_path is None:
+#         ds_args = (
+#             Path(config.data.dataset_path),
+#             config.data.variable_scaler_map,
+#             config.data.location_config,
+#             config.data.train_indices
+#         )
+#         data_scaler = build_data_scaler(*ds_args)
+#     else:
+#         data_scaler = load_data_scaler(data_scaler_parameters_path)
+#     return data_scaler
+
+
+# def build_data_scaler(data_path, variable_scaler_map, variable_location_config, split_config):
+#     split = create_indices(split_config)
+#     ds = prepare_and_scale_data(data_path, split, variable_location_config, data_transform=None)
+#     data_scaler = DataScaler(variable_scaler_map)
+#     data_scaler.fit(ds)
+#     ds.close()
+
+#     return data_scaler
+
+
+# def load_data_scaler(parameters_path):
+#     data_scaler = DataScaler({})
+#     data_scaler.load_scaler_parameters(parameters_path)
+#     return data_scaler
+    

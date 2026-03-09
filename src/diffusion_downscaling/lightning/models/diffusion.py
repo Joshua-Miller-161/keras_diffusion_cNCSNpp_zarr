@@ -18,6 +18,8 @@ def setup_edm_model(config, score_model, device):
     # tensor from the first batch and silently replay it for every subsequent batch,
     # making the model appear to ignore the atmospheric conditioning inputs.
     return loss_model, loss_config, loss_model
+    # score_model = torch.compile(loss_model, options={"triton.cudagraphs": True})
+    return score_model, loss_config, loss_model
 
 
 def setup_vp_model(config, score_model, device):

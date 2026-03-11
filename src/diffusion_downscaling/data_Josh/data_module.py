@@ -78,6 +78,7 @@ class LightningDataModule(pl.LightningDataModule):
             pin_memory=True,
             persistent_workers=self.num_workers > 0,
             worker_init_fn=_worker_init_fn,
+            random_flip=self.random_flip
         )
 
         if self.num_workers > 0:
@@ -210,7 +211,7 @@ class LightningDataModule(pl.LightningDataModule):
         kwargs['shuffle'] = False
         kwargs['drop_last'] = False
         kwargs['collate_fn'] = self.test_collate_fn
-        kwargs['random_flip'] = False
+        #kwargs['random_flip'] = False
         kwargs.pop('multiprocessing_context', None) # Drop multiprocessing safely
 
         xr_dataset = DownscalingDataset(

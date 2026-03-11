@@ -28,7 +28,7 @@ sys.path.append(os.getcwd())
 from src.diffusion_downscaling.lightning.utils import build_model
 from src.diffusion_downscaling.sampling.sampling import Sampler
 from src.diffusion_downscaling.evaluation.utils import build_evaluation_callable
-from src.diffusion_downscaling.sampling.utils import create_sampling_configurations
+from src.diffusion_downscaling.sampling.utils import create_inference_sampling_configuration
 from configs.metrics.basic_eval_metrics import EVAL_METRICS as eval_metrics
 
 def parse_module(path):
@@ -137,7 +137,7 @@ def run_eval(config, sampling_config, predictions_only=True):
 
     if config.model_type == "diffusion":
         sampling_config.sampling.schedule.device = str(config.device)
-        eval_args = create_sampling_configurations(
+        eval_args = create_inference_sampling_configuration(
             sampling_config.sampling, location_config
         )
     elif config.model_type in ("gan", "deterministic"):

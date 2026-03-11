@@ -20,9 +20,9 @@ def get_sampling_config():
     config.eval = ml_collections.ConfigDict()
     eval = config.eval
     eval.eval_output_dir = "diff"
-    config.eval_dataset = "/work/scratch-nopw2/j_miller/data/severe_weather_unet/time=1_lat=10_lon=10_threshold=15_test.zarr"
+    config.eval_dataset = "/home/data/severe_weather_unet/time=1_lat=10_lon=10_threshold=15_test.zarr"
 
-    eval.checkpoint_name = "/gws/nopw/j04/bris_climdyn/j_miller/temp/checkpoints/severe_weather_unet/karras_cNCSNpp_severe_weather_unet_thresh15/epoch=25-val_loss=0.0210.ckpt" # diffusion_
+    eval.checkpoint_name = "/home/temp/checkpoints/severe_weather_unet/karras_cNCSNpp_severe_weather_unet_thresh15/epoch=25-val_loss=0.0210.ckpt" # diffusion_
 
     eval.n_samples = 5
     # eval.location_config = 'colorado'

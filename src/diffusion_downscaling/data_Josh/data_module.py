@@ -78,7 +78,6 @@ class LightningDataModule(pl.LightningDataModule):
             pin_memory=True,
             persistent_workers=self.num_workers > 0,
             worker_init_fn=_worker_init_fn,
-            random_flip=self.random_flip
         )
 
         if self.num_workers > 0:

@@ -259,7 +259,7 @@ def build_josh_datamodule(config, num_workers=0, mode="train"):
         input_transform_dataset_name=getattr(
             data_cfg, "input_transform_dataset", getattr(data_cfg, "dataset_name", data_cfg.dataset)
         ),
-        transform_dir=os.path.join(os.getenv('WORK_DIR'), "transforms/zarr"),
+        transform_dir=os.path.join(os.getenv('WORK_DIR'), data_cfg.transform_dir),
         batch_size=config.training.batch_size,
         filename=getattr(data_cfg, "filename", getattr(data_cfg, "train_filename", None)),
         val_filename=getattr(data_cfg, "val_filename", None),

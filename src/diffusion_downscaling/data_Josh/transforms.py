@@ -174,6 +174,9 @@ def _find_or_create_transforms_per_variable_from_config(
             logger.info(" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |%s| load_transform %.4f seconds", v, end_time-start_time)
             print(f" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |{v}| load_transform {end_time-start_time} seconds")
         else:
+            logger.info(" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |%s| building_transform...", v)
+            print(f" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |{v}| building_transform...")
+            
             start_time = time.time()
             xfm = _build_transform_per_variable_from_config(
                 filename,
@@ -184,8 +187,8 @@ def _find_or_create_transforms_per_variable_from_config(
                 build_input_transform
             )[v]
             end_time = time.time()
-            logger.info(" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |%s| build_transform %.4f seconds", v, end_time-start_time)
-            print(f" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |{v}| load_transform {end_time-start_time} seconds")
+            logger.info(" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |%s| built_transform %.4f seconds", v, end_time-start_time)
+            print(f" >> >> INSIDE transforms_np._find_or_create_transforms_per_var: |{v}| built_transform {end_time-start_time} seconds")
             save_transform(xfm, input_transform_path)
             input_transforms[v] = xfm
 

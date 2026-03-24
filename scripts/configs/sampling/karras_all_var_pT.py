@@ -10,21 +10,14 @@ def get_sampling_config():
         "split": [0, 1],
     }
 
-    # config.eval_indices = {
-    #     "split": [0, 1],
-    #     # "date_range": ("2012-01-01", "2013-12-31"),
-    #     # "date_range": ("2015-10-01", "2015-10-30"),
-    #     "date_range": ("2015-01-01", "2018-12-31"),
-    # }
-
     config.eval = ml_collections.ConfigDict()
     eval = config.eval
     eval.eval_output_dir = "diff"
-    config.eval_dataset = "/home/data/severe_weather_unet/time=1_lat=10_lon=10_threshold=15_test.zarr"
+    config.eval_dataset = "/home/data/unet_splits/test_split7_szn12.zarr"
 
-    eval.checkpoint_name = "/home/temp/checkpoints/severe_weather_unet/karras_cNCSNpp_severe_weather_unet_thresh15/epoch=25-val_loss=0.0210.ckpt" # diffusion_
+    eval.checkpoint_name = "/home/temp/checkpoints/unet_splits/PM_split7/epoch=25-val_loss=0.0195.ckpt" # diffusion_
 
-    eval.n_samples = 5
+    eval.n_samples = 6
     # eval.location_config = 'colorado'
 
     config.sampling = ml_collections.ConfigDict()

@@ -139,6 +139,7 @@ class Sampler:
         base_output: str,
         evaluator: Callable = None,
         output_variables: List[str] = None,
+        sampling_config=None,
     ):
         """Evaluate the model on all configurations provided via eval_args.
 
@@ -151,6 +152,8 @@ class Sampler:
         :param base_output: str, base output directory to save the predictions and evaluation results.
         :param evaluator: Callable, evaluation function to run on the predictions.
         :param output_variables: List[str], output variable names.
+        :param sampling_config: optional sampling config object; when provided, checkpoint path,
+            eval dataset path, n_samples, and sampler settings are written to sampling_config.json.
         """
         self.precision = self.precision_lookup[main_config.precision]
 
@@ -171,7 +174,7 @@ class Sampler:
             output_path, predictions_dir, results_dir = self.setup_output_dirs(
                 base_output, output_string
             )
-            self.save_config(config, output_path)
+            self.save_config(config, output_path, sampling_config=sampling_config)
 
             print(f"Beginning predictions on {output_string}", flush=True)
             self.generate_predictions(
@@ -367,9 +370,36 @@ class Sampler:
         combined_dict = reduce(lambda x, y: {**x, **y}, config, {}) if config else {}
         return self.output_string_format.format(**combined_dict)
 
-    def save_config(self, config, output_path):
+    def save_config(self, config, output_path, sampling_config=None):
+        output = {}
+
+        if sampling_config is not None:
+            # --- Evaluation inputs ---
+            eval_dataset = getattr(sampling_config, "eval_dataset", None)
+            if eval_dataset is not None:
+                output["eval_dataset"] = str(eval_dataset)
+
+            eval_cfg = getattr(sampling_config, "eval", None)
+            if eval_cfg is not None:
+                checkpoint = getattr(eval_cfg, "checkpoint_name", None)
+                if checkpoint is not None:
+                    output["checkpoint"] = str(checkpoint)
+                n_samples = getattr(eval_cfg, "n_samples", None)
+                if n_samples is not None:
+                    output["n_samples"] = n_samples
+
+            # --- Sampler settings ---
+            sampling_cfg = getattr(sampling_config, "sampling", None)
+            if sampling_cfg is not None:
+                sampler_cfg = getattr(sampling_cfg, "sampler", None)
+                if sampler_cfg is not None:
+                    output["sampler_settings"] = dict(sampler_cfg)
+
+        # --- Per-run schedule / sampler config (existing behaviour) ---
+        output["run_config"] = config
+
         with open(output_path / "sampling_config.json", "w", encoding="utf-8") as file:
-            json.dump(config, file, indent=4)
+            json.dump(output, file, indent=4)
 
     def _get_target_transforms(self):
         """Extract target transforms from the evaluation dataloader if available."""

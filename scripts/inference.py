@@ -144,7 +144,8 @@ def run_eval(config, sampling_config, predictions_only=True):
         eval_args = ({}, [({}, {}, {"location_config": location_config})])
 
     evaluation_sampler.evaluate_model_on_all_configs(
-        config, eval_args, num_samples, base_output, eval_callable, output_variables
+        config, eval_args, num_samples, base_output, eval_callable, output_variables,
+        sampling_config=sampling_config,
     )
 
 
